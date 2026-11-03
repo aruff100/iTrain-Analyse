@@ -18,7 +18,7 @@ HOW IT WORKS
 1. Choose the layout file. The list shows the files from the iTrain folder "layouts", the most recently changed at the top. "Other …" lets you choose a file elsewhere.
 2. Choose the prompt language: Deutsch/Nederlands or English/Français/Español/Italiano.
 3. Optionally direct mode: the AI then asks no questions and delivers everything in one reply. Below it choose language, format and the two extras.
-4. Optionally "Include forum post" and enter the address of the post. The address is added to the text for the chat; the AI is asked to open the post and include the problem described.
+4. Optionally "Include forum post" and enter the address of the post. The iTrain forum shows posts to logged-in users only. The AI can therefore only read the post if it may use a browser in which you are logged in to the forum: with Claude, the "Claude in Chrome" extension (Chrome must be open and the extension connected) or the browser of the Claude app, in which you log in to the forum once. Other AI assistants usually cannot do this. In that case open the post in your browser, copy the text and paste it into the field "Post text"; the program adds it to the other files as Forum_Beitrag_<number>.txt.
 5. Click "Assemble". The "Progress" field shows what was collected and what is missing.
 6. Then the window with the analysis package opens. Open a new, empty chat in your AI assistant, drag the blue box with all files into the message field, add the text with "Copy" and send. The window can be printed.
 Files and text are also on the clipboard: Ctrl+V (Mac: Cmd+V) in the message field pastes them if your chat interface supports it.

@@ -63,6 +63,9 @@ public class AnalyseApplication extends Application {
     private CheckBox forum;
     private TextField forumUrl;
     private Label forumUrlLabel;
+    private Label forumHinweis;
+    private Label forumTextLabel;
+    private TextArea forumText;
     private MenuItem ansichtPrompt;
     private MenuItem ansichtRelease;
     private MenuItem ansichtHandbuch;
@@ -74,6 +77,10 @@ public class AnalyseApplication extends Application {
     private Zusammenstellung.Ergebnis letztes;
     /** Direktmodus ist bei jedem Start aus und wird nicht gespeichert (Anwender 03.11.2026). */
     private boolean direktGewaehlt;
+    /** Forum-Beitrag und Adresse sind bei jedem Start leer und werden nicht gespeichert (Anwender 03.11.2026). */
+    private boolean forumGewaehlt;
+    private String forumAdresse = "";
+    private String forumInhalt = "";
     private String letztesLayout = "";
 
     @Override
@@ -143,6 +150,20 @@ public class AnalyseApplication extends Application {
         forumUrlLabel = new Label(I18n.t("feld.forumUrl"));
         g.addRow(z++, forumUrlLabel, forumUrl);
         GridPane.setColumnSpan(forumUrl, 2);
+        // Das Forum verlangt eine Anmeldung, auch zum Lesen (Anwender 03.11.2026).
+        forumHinweis = new Label(I18n.t("feld.forumHinweis"));
+        forumHinweis.setWrapText(true);
+        forumHinweis.setStyle("-fx-font-size: 11px; -fx-opacity: 0.85;");
+        forumHinweis.setMinHeight(Region.USE_PREF_SIZE);
+        g.add(forumHinweis, 1, z++, 2, 1);
+        forumTextLabel = new Label(I18n.t("feld.forumText"));
+        forumText = new TextArea();
+        forumText.setPrefRowCount(3);
+        forumText.setWrapText(true);
+        forumText.setPromptText(I18n.t("feld.forumTextLeer"));
+        g.add(forumTextLabel, 0, z);
+        g.add(forumText, 1, z++, 2, 1);
+        GridPane.setValignment(forumTextLabel, javafx.geometry.VPos.TOP);
 
         start = Oberflaeche.farbe(new Button(I18n.t("knopf.zusammenstellen")), Oberflaeche.GRUEN);
         start.setDefaultButton(true);
@@ -206,8 +227,9 @@ public class AnalyseApplication extends Application {
         direkt.setSelected(direktGewaehlt);
         zugtabelle.setSelected(Einstellungen.getBool("zugtabelle", Einstellungen.getBool("zusaetze", false)));
         bahnsteige.setSelected(Einstellungen.getBool("bahnsteige", Einstellungen.getBool("zusaetze", false)));
-        forum.setSelected(Einstellungen.getBool("forum", false));
-        forumUrl.setText(Einstellungen.get(Einstellungen.FORUM_URL, ""));
+        forum.setSelected(forumGewaehlt);
+        forumUrl.setText(forumAdresse);
+        forumText.setText(forumInhalt);
         schalten();
         layoutsLaden();
 
@@ -335,8 +357,9 @@ public class AnalyseApplication extends Application {
         direktGewaehlt = direkt.isSelected();
         Einstellungen.setBool("zugtabelle", zugtabelle.isSelected());
         Einstellungen.setBool("bahnsteige", bahnsteige.isSelected());
-        Einstellungen.setBool("forum", forum.isSelected());
-        Einstellungen.set(Einstellungen.FORUM_URL, forumUrl.getText().trim());
+        forumGewaehlt = forum.isSelected();
+        forumAdresse = forumUrl.getText().trim();
+        forumInhalt = forumText.getText();
     }
 
     private void sprachenSetzen() {
@@ -353,6 +376,9 @@ public class AnalyseApplication extends Application {
         bahnsteige.setDisable(!an);
         forumUrl.setDisable(!forum.isSelected());
         forumUrlLabel.setDisable(!forum.isSelected());
+        forumHinweis.setDisable(!forum.isSelected());
+        forumTextLabel.setDisable(!forum.isSelected());
+        forumText.setDisable(!forum.isSelected());
     }
 
     private boolean frage(String titel, String text, String ja, String nein) {
@@ -461,14 +487,17 @@ public class AnalyseApplication extends Application {
     private void zusammenstellen() {
         speichern();
         protokoll.clear();
-        if (forum.isSelected() && !forumUrl.getText().trim().matches("(?i)https?://\\S+")) {
+        String url = forumUrl.getText().trim();
+        boolean mitText = !forumText.getText().isBlank();
+        if (forum.isSelected() && !(url.isEmpty() && mitText) && !url.matches("(?i)https?://\\S+")) {
             melde(Zusammenstellung.FEHLT + " " + I18n.t("status.forumUngueltig"));
             return;
         }
         letztesLayout = layout.getValue() == null ? "" : layout.getValue().getFileName().toString();
         Zusammenstellung.Auftrag auftrag = new Zusammenstellung.Auftrag(layout.getValue(), gruppe.getValue(),
                 Einstellungen.docsOrdner(), Einstellungen.arbeitsordner(), alsXml.isSelected(), direkt.isSelected(),
-                sprache.getValue(), zugtabelle.isSelected(), bahnsteige.isSelected(), format.getValue(), forum.isSelected() ? forumUrl.getText().trim() : "",
+                sprache.getValue(), zugtabelle.isSelected(), bahnsteige.isSelected(), format.getValue(),
+                forum.isSelected() ? url : "", forum.isSelected() ? forumText.getText() : "",
                 Einstellungen.handbuchAdresse(),
                 HandbuchSprache.aus(Einstellungen.get(Einstellungen.HANDBUCH_SPRACHE, "")));
         Task<Zusammenstellung.Ergebnis> task = new Task<>() {

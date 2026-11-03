@@ -33,8 +33,16 @@ deshalb nur Meldungen, wenn etwas zu berichten ist (von Hand über das Hilfe-Men
 Alle Knöpfe pastell wie in iTrain-Logistik (`Oberflaeche.pastell`, Schrift #1f2328, auch in Dialogen; Farbe
 mit `Oberflaeche.farbe`, sonst OK/Ja grün, Abbrechen/Nein rosa, Rest blau).
 Erster Start: `ErsterStartDialog` fragt Sprache und Farben (Schlüssel "eingerichtet").
-Direktmodus ist bei jedem Start aus und wird nicht gespeichert.
+Direktmodus, "Forum-Beitrag einbeziehen" und die Forum-Adresse sind bei jedem Start aus bzw. leer und werden
+nicht gespeichert.
 Hilfe und Über: "Programm, Prompt und Hilfe wurden in Zusammenarbeit mit Claude erstellt", Claude als Link.
+
+## Forum (Anwender 03.11.2026)
+
+Das iTrain-Forum zeigt Beiträge nur angemeldeten Nutzern. Eine KI liest einen Beitrag nur über einen Browser
+mit Anmeldung des Anwenders (Claude: Erweiterung "Claude in Chrome" oder Browser der Claude-App); Zugangsdaten
+speichert das Programm nicht. Hinweis unter dem URL-Feld; optionales Feld "Beitragstext" wird als
+`Forum_Beitrag_<p>.txt` beigelegt und im Text für den Chat genannt; nur URL ohne Text gibt eine Warnung.
 
 ## Ansichten und bearbeitete Texte (Anwender 03.11.2026)
 

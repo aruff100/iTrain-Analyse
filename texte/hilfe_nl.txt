@@ -18,7 +18,7 @@ ZO WERKT HET
 1. Kies het layoutbestand. De lijst toont de bestanden uit de iTrain-map "layouts", het laatst gewijzigde bovenaan. Met "Andere …" kiest u een bestand op een andere plek.
 2. Kies de taal van de prompt: Deutsch/Nederlands of English/Français/Español/Italiano.
 3. Eventueel directe modus: de AI stelt dan geen vragen en levert alles in één antwoord. Kies daaronder taal, formaat en de twee aanvullingen.
-4. Eventueel "Forumbericht meenemen" en het adres van het bericht invullen. Het adres wordt in de tekst voor de chat opgenomen; de AI wordt gevraagd het bericht te openen en het beschreven probleem mee te nemen.
+4. Eventueel „Forumbericht meenemen” en het adres van het bericht invullen. Het iTrain-forum toont berichten alleen aan aangemelde gebruikers. De AI kan het bericht daarom alleen lezen als hij een browser mag gebruiken waarin u op het forum bent aangemeld: bij Claude de extensie „Claude in Chrome” (Chrome moet open zijn en de extensie verbonden) of de browser van de Claude-app, waarin u zich eenmaal op het forum aanmeldt. Andere AI-assistenten kunnen dat meestal niet. Open dan het bericht in de browser, kopieer de tekst en plak hem in het veld „Tekst bericht”; het programma voegt hem als Forum_Beitrag_<nummer>.txt bij de andere bestanden.
 5. Klik op "Samenstellen". Het veld "Voortgang" toont wat is verzameld en wat ontbreekt.
 6. Daarna opent het venster met het analysepakket. Open een nieuwe, lege chat in uw AI-assistent, sleep het blauwe vak met alle bestanden naar het berichtveld, voeg de tekst toe met "Kopiëren" en verzend. Het venster kan worden afgedrukt.
 Bestanden en tekst staan ook op het klembord: Ctrl+V (Mac: Cmd+V) in het berichtveld plakt ze, als uw chatomgeving dat ondersteunt.

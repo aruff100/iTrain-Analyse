@@ -33,7 +33,7 @@ public final class Zusammenstellung {
     /** Eingaben aus Fenster und Voreinstellungen. */
     public record Auftrag(Path projektdatei, Sprachgruppe gruppe, Path docsOrdner, Path arbeitsordner,
             boolean tcdAlsXml, boolean direkt, String sprache, boolean zugtabelle, boolean bahnsteige, String format,
-            String forumUrl,
+            String forumUrl, String forumText,
             String handbuchAdresse, HandbuchSprache handbuchSprache) {
     }
 
@@ -51,7 +51,7 @@ public final class Zusammenstellung {
 
     /** Dateien in der Reihenfolge für den Chat, Nachrichtentext, Ordner, Statusliste, Texte, Auftrag. */
     public record Ergebnis(List<Path> dateien, String nachricht, Path ordner, List<Status> status, List<Text> texte,
-            Auftrag auftrag) {
+            Auftrag auftrag, String forumDatei) {
 
         public java.util.Optional<Text> text(Bearbeitet.Art art) {
             return texte.stream().filter(x -> x.art() == art).findFirst();
@@ -183,21 +183,38 @@ public final class Zusammenstellung {
             melde.accept(new Status(WARNUNG, I18n.t("status.versionAlt", tcd.itrainVersion(), hbVersion)));
         }
 
-        // 6. Nachricht
-        String nachricht = nachricht(a, texte);
-        Files.writeString(ordner.resolve(NACHRICHT_DATEI), nachricht + "\n", StandardCharsets.UTF_8);
-        if (a.forumUrl() != null && !a.forumUrl().isBlank()) {
-            melde.accept(new Status(OK, I18n.t("status.forum", a.forumUrl().trim())));
+        // 6. Forumsbeitrag: Das Forum verlangt eine Anmeldung. Ohne eingefügten Text kann die KI den Beitrag nur
+        // über einen angemeldeten Browser lesen (Anwender 03.11.2026).
+        String forumDatei = null;
+        if (a.forumText() != null && !a.forumText().isBlank()) {
+            Path f = ordner.resolve(forumDateiname(a.forumUrl()));
+            String kopf = a.forumUrl() == null || a.forumUrl().isBlank() ? "" : a.forumUrl().trim() + "\n\n";
+            Files.writeString(f, kopf + a.forumText().strip() + "\n", StandardCharsets.UTF_8);
+            dateien.add(f);
+            forumDatei = f.getFileName().toString();
+            melde.accept(new Status(OK, I18n.t("status.forumDatei", forumDatei)));
+        } else if (a.forumUrl() != null && !a.forumUrl().isBlank()) {
+            melde.accept(new Status(WARNUNG, I18n.t("status.forumAnmeldung", a.forumUrl().trim())));
         }
+
+        // 7. Nachricht
+        String nachricht = nachricht(a, texte, forumDatei);
+        Files.writeString(ordner.resolve(NACHRICHT_DATEI), nachricht + "\n", StandardCharsets.UTF_8);
         melde.accept(new Status(OK, I18n.t("status.fertig", dateien.size(), groesse(dateien) / 1024, ordner)));
-        return new Ergebnis(dateien, nachricht, ordner, status, texte, a);
+        return new Ergebnis(dateien, nachricht, ordner, status, texte, a, forumDatei);
     }
 
-    private static String nachricht(Auftrag a, List<Text> texte) {
+    /** Forum_Beitrag_<Beitragsnummer>.txt, ohne Nummer in der Adresse Forum_Beitrag.txt. */
+    static String forumDateiname(String url) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("[?&#]p=?(\\d+)").matcher(url == null ? "" : url);
+        return m.find() ? "Forum_Beitrag_" + m.group(1) + ".txt" : "Forum_Beitrag.txt";
+    }
+
+    private static String nachricht(Auftrag a, List<Text> texte, String forumDatei) {
         List<String> namen = texte.stream().filter(Text::bearbeitet).map(x -> x.datei().getFileName().toString())
                 .toList();
         return a.gruppe().nachricht(a.direkt(), a.sprache(), a.zugtabelle(), a.bahnsteige(), a.format(),
-                a.forumUrl(), namen);
+                a.forumUrl(), forumDatei, namen);
     }
 
     /**
@@ -276,9 +293,9 @@ public final class Zusammenstellung {
                     neu.datei().getFileName())));
         }
         texte.set(texte.indexOf(t), neu);
-        String nachricht = nachricht(e.auftrag(), texte);
+        String nachricht = nachricht(e.auftrag(), texte, e.forumDatei());
         Files.writeString(e.ordner().resolve(NACHRICHT_DATEI), nachricht + "\n", StandardCharsets.UTF_8);
-        return new Ergebnis(dateien, nachricht, e.ordner(), status, texte, e.auftrag());
+        return new Ergebnis(dateien, nachricht, e.ordner(), status, texte, e.auftrag(), e.forumDatei());
     }
 
     private static String mb(long bytes) {
