@@ -1,0 +1,57 @@
+iTrain-Analyse – Aide
+
+À QUOI SERT LE PROGRAMME
+Le programme rassemble tous les fichiers dont le prompt d'analyse a besoin : le prompt, le fichier de réseau, le manuel en texte avec numéros de page et les notes de version. L'analyse elle-même est réalisée par votre assistant IA. Le programme n'envoie rien à une IA et ne modifie pas votre fichier de réseau.
+
+IMPORTANT : SERVICES D'IA GRATUITS ET PAYANTS
+Une analyse est une tâche très volumineuse : manuel (environ 500 Ko de texte), fichier de réseau et prompt ensemble. Tous les fournisseurs limitent l'utilisation, en particulier les accès gratuits. L'analyse s'y interrompt souvent, ou l'IA ne vérifie qu'une partie.
+D'après l'expérience de l'auteur (novembre 2026), seul Claude avec l'abonnement payant Pro a mené l'analyse à bien sans erreur. Les autres assistants IA et les accès gratuits ont atteint leurs limites d'utilisation et ont été surchargés par une telle analyse.
+Claude Pro a lui aussi des limites d'utilisation. Selon Anthropic, elles représentent toutefois au moins cinq fois celles de l'accès gratuit par session et se réinitialisent toutes les cinq heures.
+L'abonnement Pro peut être résilié chaque mois. Si vous ne voulez analyser que pendant un certain temps, inscrivez-vous sur claude.ai, souscrivez Pro pour un mois, payez et résiliez aussitôt. La résiliation ne prend effet qu'à la fin du mois payé ; jusque-là, Pro reste utilisable. Vous disposez ainsi d'environ 30 jours pour analyser autant que les limites le permettent. Si vous ne souhaitez pas renouveler, résiliez au moins 24 heures avant la prochaine date de facturation.
+Les prix et conditions peuvent changer ; les informations de claude.ai font foi.
+
+DÉBUTANT OU AVANCÉ
+Avancé : l'analyse complète avec le prompt, comme décrit sur itrainplus.de.
+Débutant : un prompt qui travaille pas à pas avec vous. Il est encore en développement.
+
+MODE D'EMPLOI
+1. Choisissez le fichier de réseau. La liste affiche les fichiers du dossier iTrain « layouts », le plus récemment modifié en haut. « Autre … » permet de choisir un fichier ailleurs.
+2. Choisissez la langue du prompt : Deutsch/Nederlands ou English/Français/Español/Italiano.
+3. Au choix, mode direct : l'IA ne pose alors aucune question et fournit tout en une seule réponse. En dessous, choisissez la langue, le format et les deux compléments.
+4. Au choix, « Inclure un message du forum » et saisir l'adresse du message. L'adresse est ajoutée au texte pour le chat ; l'IA est invitée à ouvrir le message et à tenir compte du problème décrit.
+5. Cliquez sur « Assembler ». Le champ « Progression » indique ce qui a été rassemblé et ce qui manque.
+6. La fenêtre du dossier d'analyse s'ouvre ensuite. Ouvrez un nouveau chat vide dans votre assistant IA, faites glisser le cadre bleu contenant tous les fichiers dans le champ de message, ajoutez le texte avec « Copier » et envoyez. La fenêtre peut être imprimée.
+Les fichiers et le texte sont aussi dans le presse-papiers : Ctrl+V (Mac : Cmd+V) dans le champ de message les colle si votre interface de chat le permet.
+
+CE QUI EST RASSEMBLÉ
+Prompt : provient du serveur web itrainplus.de. Une version est incluse dans le programme. À chaque démarrage, le programme vérifie s'il existe une version plus récente sur le serveur et demande avant de télécharger. Un dossier local peut remplacer le serveur.
+Manuel : provient de la page de téléchargement de Berros. Au démarrage, le programme vérifie s'il existe une version plus récente et demande avant de télécharger. Le PDF est converti une seule fois en texte ; chaque page commence par « ===== Seite x von N ===== » pour que l'IA puisse indiquer des numéros de page.
+Notes de version : proviennent du dossier docs de votre installation iTrain, réduites aux versions à partir de 6.0. Si elles manquent, le programme demande s'il doit continuer quand même.
+Fichier de réseau : le .tcdz est décompressé ; l'IA reçoit le .tcd qu'il contient.
+Tout est enregistré dans le dossier de travail. Le prompt, le PDF et le texte du manuel sont réutilisés lors de l'analyse suivante tant qu'ils sont à jour.
+
+COMPLÉMENTS
+Le complément 1 est le tableau des trains, le complément 2 la vérification des quais, longueurs de cantons et points d'arrêt. À partir du prompt 2.3, ils peuvent être choisis séparément. En mode direct, le programme écrit par ex. « Extras Train table and Platforms » ou « Extras Platforms » dans le texte pour le chat ; en mode dialogue, l'IA pose la question avec quatre réponses : les deux, seulement le tableau des trains, seulement les quais, aucun.
+
+ITINÉRAIRES
+À partir du prompt 2.3, l'IA vérifie dans chaque analyse la faisabilité de tous les itinéraires : existence des cantons, enchaînement dans le plan de voies dans le sens indiqué, respect possible de l'option « Strikt », itinéraires répétés se terminant là où ils commencent, et présence d'un canton adapté dans les listes « Longueur optimale ». S'il n'y a rien à signaler, « Sans constat » indique : Itinéraires vérifiés, sans constat.
+
+AFFICHAGE
+Après l'assemblage, le menu « Affichage » montre le texte du prompt, celui des notes de version et celui du manuel dans une fenêtre séparée. Avant, les entrées sont grisées. Avec « Modifier », vous pouvez compléter le texte, par ex. ajouter vos propres règles au prompt. Copier, coller et couper fonctionnent avec Ctrl+C, Ctrl+V et Ctrl+X (Mac : Cmd) ou avec les boutons.
+« Enregistrer » range la version sous « …_bearbeitet.txt » dans le sous-dossier « Bearbeitet » du dossier de travail et remplace ainsi l'original dans le presse-papiers, la fenêtre de résultat et le dossier du réseau. L'original est conservé ; « Rétablir l'original » revient en arrière. Le texte pour le chat indique à l'IA les fichiers modifiés, et le programme vous le signale lors de la copie.
+Lors de l'assemblage suivant, le programme demande s'il faut utiliser la version modifiée ou l'original. Si l'original a changé entre-temps (par ex. un nouveau prompt), la question le précise.
+
+SI LE COLLAGE NE FONCTIONNE PAS
+Certaines interfaces de chat n'acceptent pas les fichiers du presse-papiers. Faites alors glisser les fichiers depuis la fenêtre de résultat ou depuis le dossier de travail (« Ouvrir le dossier de travail ») dans le chat et copiez le texte avec « Copier ».
+Si l'IA refuse le .tcd, activez « Joindre le fichier de réseau en .tcd.xml » et assemblez à nouveau.
+
+RÉGLAGES
+Réglages > Préférences :
+Chemins : source du prompt (serveur web ou dossier local), dossier des fichiers de réseau, dossier docs d'iTrain, adresse et langue du manuel.
+Dossier de travail : un sous-dossier par réseau avec les fichiers pour le chat, plus le cache .cache.
+Couleurs : clair ou sombre.
+Langue : langue de l'interface.
+
+REMARQUES
+Votre fichier de réseau est transmis au fournisseur de l'IA lorsque vous le collez.
+Toute IA peut se tromper. Vérifiez les constats dans iTrain avant de modifier quoi que ce soit, et sauvegardez d'abord votre projet.

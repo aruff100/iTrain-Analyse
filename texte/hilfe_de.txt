@@ -1,0 +1,57 @@
+iTrain-Analyse – Hilfe
+
+WOZU DAS PROGRAMM DA IST
+Das Programm stellt alle Dateien zusammen, die der Analyse-Prompt braucht: Prompt, Layout-Datei, Handbuch als Text mit Seitenangaben und Release Notes. Die Analyse selbst macht Ihr KI-Assistent. Das Programm sendet nichts an eine KI und verändert Ihre Layout-Datei nicht.
+
+WICHTIG: KOSTENLOSE UND BEZAHLTE KI-DIENSTE
+Eine Analyse ist ein sehr großer Auftrag: Handbuch (rund 500 KB Text), Layout-Datei und Prompt zusammen. Alle Anbieter begrenzen die Nutzung, kostenlose Zugänge besonders stark. Dort bricht die Analyse häufig ab, oder die KI prüft nur einen Teil.
+Nach den Erfahrungen des Autors (Stand November 2026) hat nur Claude mit dem bezahlten Pro-Abo die Analyse einwandfrei durchgeführt. Andere KI-Assistenten und kostenlose Zugänge stießen an ihre Nutzungslimits und waren mit einer solchen Analyse überlastet.
+Auch Claude Pro hat Nutzungslimits. Sie liegen laut Anthropic aber bei mindestens dem Fünffachen des kostenlosen Zugangs je Sitzung und setzen sich alle fünf Stunden zurück.
+Das Pro-Abo kann monatlich gekündigt werden. Wer nur eine Zeit lang analysieren möchte, registriert sich bei claude.ai, schließt Pro für einen Monat ab, bezahlt und kündigt gleich wieder. Die Kündigung wird erst zum Ende des bezahlten Monats wirksam; bis dahin bleibt Pro nutzbar. Damit haben Sie rund 30 Tage, in denen Sie so viel analysieren können, wie die Limits zulassen. Wer nicht verlängern will, kündigt mindestens 24 Stunden vor dem nächsten Abrechnungstermin.
+Preise und Bedingungen können sich ändern; maßgeblich sind die Angaben auf claude.ai.
+
+ANFÄNGER ODER FORTGESCHRITTEN
+Fortgeschritten: die vollständige Analyse mit dem Prompt, wie auf itrainplus.de beschrieben.
+Anfänger: ein Prompt, der Schritt für Schritt mit Ihnen arbeitet. Er ist noch in Entwicklung.
+
+SO GEHT'S
+1. Layout-Datei wählen. Die Liste zeigt die Dateien aus dem iTrain-Ordner „layouts“, die zuletzt geänderte steht oben. Mit „Andere …“ wählen Sie eine Datei an anderer Stelle.
+2. Prompt-Sprache wählen: Deutsch/Nederlands oder English/Français/Español/Italiano.
+3. Wahlweise Direktmodus: Die KI stellt dann keine Rückfragen und liefert alles in einer Antwort. Darunter Sprache, Format und die beiden Zusätze wählen.
+4. Wahlweise „Forum-Beitrag einbeziehen“ und die Adresse des Beitrags eintragen. Die Adresse wird in den Text für den Chat übernommen; die KI soll den Beitrag öffnen und das beschriebene Problem einbeziehen.
+5. „Zusammenstellen“ klicken. Im Feld „Fortschritt“ sehen Sie, was zusammengetragen wurde und was fehlt.
+6. Danach öffnet sich das Fenster mit dem Analyse-Paket. Öffnen Sie einen neuen, leeren Chat in Ihrem KI-Assistenten, ziehen Sie den blauen Kasten mit allen Dateien in das Nachrichtenfeld, kopieren Sie den Text mit „Kopieren“ dazu und senden Sie ab. Das Fenster lässt sich drucken.
+Dateien und Text liegen außerdem in der Zwischenablage: Strg+V (Mac: Cmd+V) im Nachrichtenfeld fügt sie ein, wenn Ihre Chat-Oberfläche das unterstützt.
+
+WAS ZUSAMMENGESTELLT WIRD
+Prompt: kommt vom Webserver itrainplus.de. Eine Fassung ist im Programm enthalten. Bei jedem Start prüft das Programm, ob es auf dem Server eine neuere gibt, und fragt vor dem Herunterladen. Statt des Servers kann ein lokaler Ordner eingestellt werden.
+Handbuch: kommt von der Download-Seite von Berros. Beim Start prüft das Programm, ob es eine neuere Fassung gibt, und fragt vor dem Herunterladen. Das PDF wird einmal in Text umgewandelt; jede Seite beginnt mit „===== Seite x von N =====“, damit die KI Seitenangaben machen kann.
+Release Notes: kommen aus dem docs-Ordner Ihrer iTrain-Installation, gekürzt auf die Versionen ab 6.0. Fehlen sie, fragt das Programm, ob es trotzdem weitergehen soll.
+Layout-Datei: die .tcdz wird entpackt; die KI bekommt die .tcd darin.
+Alles liegt im Arbeitsordner. Prompt, Handbuch-PDF und Handbuch-Text werden bei der nächsten Analyse wiederverwendet, solange sie aktuell sind.
+
+ZUSÄTZE
+Zusatz 1 ist die Zugtabelle, Zusatz 2 die Prüfung von Bahnsteigen, Blocklängen und Haltepunkten. Ab Prompt 2.3 lassen sich beide getrennt wählen. Im Direktmodus schreibt das Programm z. B. „Zusätze Zugtabelle und Bahnsteige“ oder „Zusätze Bahnsteige“ in den Text für den Chat; im Dialogmodus fragt die KI mit vier Antworten: beide, nur Zugtabelle, nur Bahnsteige, keine.
+
+ROUTEN
+Ab Prompt 2.3 prüft die KI in jeder Analyse alle Zugrouten auf Durchführbarkeit: ob die Blöcke existieren, ob sie im Gleisplan in der angegebenen Richtung aufeinander folgen, ob die Option „Strikt“ erfüllbar ist, ob wiederholte Routen dort enden, wo sie beginnen, und ob in Listen mit „Optimale Länge“ ein passender Block steht. Gibt es nichts zu beanstanden, steht unter „Ohne Befund“: Routen überprüft, keine Befunde.
+
+ANSICHTEN
+Nach dem Zusammenstellen zeigt das Menü „Ansichten“ den Prompt-Text, den Release-Text und den Handbuch-Text in einem eigenen Fenster an. Vorher sind die Einträge ausgegraut. Mit „Bearbeiten“ können Sie den Text ergänzen, z. B. eigene Prüfregeln an den Prompt anhängen. Kopieren, Einfügen und Ausschneiden gehen mit Strg+C, Strg+V und Strg+X (Mac: Cmd) oder über die Knöpfe.
+„Speichern“ legt die Fassung als „…_bearbeitet.txt“ im Unterordner „Bearbeitet“ des Arbeitsordners ab und ersetzt damit das Original in Zwischenablage, Ergebnisfenster und Layout-Ordner. Das Original bleibt erhalten; „Original wiederherstellen“ schaltet zurück. Der Text für den Chat nennt der KI die bearbeiteten Dateien, und das Programm weist Sie beim Kopieren darauf hin.
+Bei der nächsten Zusammenstellung fragt das Programm, ob die bearbeitete Fassung oder das Original verwendet werden soll. Hat sich das Original inzwischen geändert (z. B. ein neuer Prompt), steht das in der Frage.
+
+WENN DAS EINFÜGEN NICHT KLAPPT
+Manche Chat-Oberflächen nehmen Dateien nicht aus der Zwischenablage. Ziehen Sie die Dateien dann aus dem Ergebnisfenster oder aus dem Arbeitsordner („Arbeitsordner öffnen“) in den Chat und kopieren Sie den Text mit „Kopieren“.
+Lehnt die KI die .tcd ab, „Layout-Datei als .tcd.xml beifügen“ einschalten und neu zusammenstellen.
+
+EINSTELLUNGEN
+Einstellungen > Voreinstellungen:
+Pfade: Prompt-Quelle (Webserver oder lokaler Ordner), Ordner der Layout-Dateien, iTrain-docs-Ordner, Adresse und Sprache des Handbuchs.
+Arbeitsverzeichnis: Je Layout ein Unterordner mit den Dateien für den Chat, dazu der Zwischenspeicher .cache.
+Farben: hell oder dunkel.
+Sprache: Sprache der Oberfläche.
+
+HINWEISE
+Ihre Layout-Datei wird beim Einfügen an den Anbieter der KI übertragen.
+Jede KI kann sich irren. Prüfen Sie Befunde in iTrain nach, bevor Sie etwas ändern, und sichern Sie vorher Ihr Projekt.

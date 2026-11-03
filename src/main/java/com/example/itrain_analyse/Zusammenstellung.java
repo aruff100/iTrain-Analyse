@@ -1,0 +1,309 @@
+package com.example.itrain_analyse;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+import java.util.stream.Stream;
+
+/**
+ * Sucht alle Dateien für den Chat zusammen und legt sie im Arbeitsordner ab
+ * ({@code <Arbeitsordner>/<Name der Layout-Datei>/}). Handbuch-PDF, Handbuch-Text und Prompt kommen aus dem
+ * Zwischenspeicher {@code <Arbeitsordner>/.cache} und werden bei der nächsten Analyse wiederverwendet.
+ * Fortschritt und Ergebnis jedes Schritts gehen als Zeile mit Symbol an {@code meldung}.
+ */
+public final class Zusammenstellung {
+
+    /** Rückfragen an den Anwender (das Fenster zeigt einen Dialog und wartet auf die Antwort). */
+    public interface Rueckfrage {
+        boolean frage(String titel, String text, String ja, String nein);
+    }
+
+    /** Vom Anwender abgebrochen. */
+    public static final class Abbruch extends IOException {
+        public Abbruch(String text) {
+            super(text);
+        }
+    }
+
+    /** Eingaben aus Fenster und Voreinstellungen. */
+    public record Auftrag(Path projektdatei, Sprachgruppe gruppe, Path docsOrdner, Path arbeitsordner,
+            boolean tcdAlsXml, boolean direkt, String sprache, boolean zugtabelle, boolean bahnsteige, String format,
+            String forumUrl,
+            String handbuchAdresse, HandbuchSprache handbuchSprache) {
+    }
+
+    /** Ein Eintrag der Statusliste: Symbol (✔, ⚠, ✖) und Text. */
+    public record Status(String symbol, String text) {
+    }
+
+    /**
+     * Ein ansehbarer Text (Menü "Ansichten"): Art, Schlüssel für die bearbeitete Fassung, Anzeigename, das
+     * unbearbeitete Original und die Datei im Arbeitsordner, die in den Chat geht.
+     */
+    public record Text(Bearbeitet.Art art, String schluessel, String bezeichnung, Path original, Path datei,
+            boolean bearbeitet) {
+    }
+
+    /** Dateien in der Reihenfolge für den Chat, Nachrichtentext, Ordner, Statusliste, Texte, Auftrag. */
+    public record Ergebnis(List<Path> dateien, String nachricht, Path ordner, List<Status> status, List<Text> texte,
+            Auftrag auftrag) {
+
+        public java.util.Optional<Text> text(Bearbeitet.Art art) {
+            return texte.stream().filter(x -> x.art() == art).findFirst();
+        }
+
+        /** Anzeigenamen der bearbeiteten Texte. */
+        public List<String> bearbeitet() {
+            return texte.stream().filter(Text::bearbeitet).map(Text::bezeichnung).toList();
+        }
+    }
+
+    public static final String OK = "✔";
+    public static final String WARNUNG = "⚠";
+    public static final String FEHLT = "✖";
+    public static final String LAEUFT = "…";
+
+    /** Nachrichtentext zusätzlich als Datei im Arbeitsordner (wird nicht in den Chat gezogen). */
+    public static final String NACHRICHT_DATEI = "Nachricht_fuer_den_Chat.txt";
+
+    private static final Version HANDBUCH_VORGABE = Version.aus("6.0");
+
+    private Zusammenstellung() {
+    }
+
+    public static Ergebnis ausfuehren(Auftrag a, Rueckfrage rf, Consumer<String> meldung) throws IOException {
+        List<Status> status = new ArrayList<>();
+        Consumer<Status> melde = s -> {
+            status.add(s);
+            meldung.accept(s.symbol() + " " + s.text());
+        };
+
+        // 1. Layout-Datei
+        if (a.projektdatei() == null || !Files.isRegularFile(a.projektdatei())) {
+            melde.accept(new Status(FEHLT, I18n.t("status.layoutFehlt")));
+            throw new IOException(I18n.t("status.layoutFehlt"));
+        }
+        String basis = a.projektdatei().getFileName().toString().replaceFirst("(?i)\\.tcdz?$", "");
+        Path ordner = a.arbeitsordner().resolve(basis);
+        Files.createDirectories(ordner);
+        leeren(ordner);
+        List<Path> dateien = new ArrayList<>();
+        List<Text> texte = new ArrayList<>();
+
+        // 2. Prompt
+        meldung.accept(LAEUFT + " " + I18n.t("status.promptSuche"));
+        Path prompt = PromptQuelle.aktuell(a.gruppe());
+        Path promptZiel = ordner.resolve(prompt.getFileName());
+        Files.copy(prompt, promptZiel, StandardCopyOption.REPLACE_EXISTING);
+        dateien.add(promptZiel);
+        melde.accept(new Status(OK, I18n.t("status.prompt", prompt.getFileName())));
+        waehle(a, rf, melde, dateien, texte, new Text(Bearbeitet.Art.PROMPT,
+                Bearbeitet.schluessel(Bearbeitet.Art.PROMPT, a.gruppe().name()), I18n.t("ansicht.prompt"),
+                prompt, promptZiel, false));
+
+        // 3. Layout entpacken
+        Projektdatei.Ergebnis tcd = Projektdatei.entpacke(a.projektdatei(), ordner, a.tcdAlsXml());
+        dateien.add(tcd.tcd());
+        melde.accept(new Status(OK, I18n.t("status.layout", tcd.tcd().getFileName(),
+                tcd.itrainVersion() == null ? I18n.t("status.nichtGelesen") : tcd.itrainVersion())));
+
+        // 4. Handbuch
+        HandbuchSprache hs = a.handbuchSprache().aufloesen(a.gruppe(), a.direkt(), a.sprache());
+        Path pdf = HandbuchDownload.lokal(a.handbuchAdresse(), hs);
+        if (!Files.isRegularFile(pdf)) {
+            HandbuchDownload.Stand st = HandbuchDownload.pruefe(a.handbuchAdresse(), hs);
+            if (st.zustand() == HandbuchDownload.Zustand.FEHLT
+                    && rf.frage(I18n.t("dialog.handbuch.titel"),
+                            I18n.t("dialog.handbuch.fehlt", pdf.getFileName(), mb(st.groesse())),
+                            I18n.t("knopf.herunterladen"), I18n.t("knopf.abbrechen"))) {
+                meldung.accept(LAEUFT + " " + I18n.t("status.handbuchLaedt", pdf.getFileName()));
+                pdf = HandbuchDownload.lade(a.handbuchAdresse(), hs);
+            } else {
+                melde.accept(new Status(FEHLT, I18n.t("status.handbuchFehlt", pdf.getFileName())));
+                throw new Abbruch(I18n.t("status.handbuchFehlt", pdf.getFileName()));
+            }
+        }
+        Path cacheHandbuch = Einstellungen.cache().resolve("handbuch-text");
+        boolean neuUmwandeln = !Handbuch.istZwischengespeichert(pdf, cacheHandbuch);
+        if (neuUmwandeln) {
+            meldung.accept(LAEUFT + " " + I18n.t("status.handbuchWandelt"));
+        }
+        Version adressVersion = HandbuchDownload.versionAus(a.handbuchAdresse());
+        Handbuch.Ergebnis hb = Handbuch.alsText(pdf, cacheHandbuch, ordner, hs.kuerzel(), adressVersion, m -> { });
+        dateien.add(hb.text());
+        Path hbOriginal = cacheHandbuch.resolve(hb.text().getFileName());
+        Version hbVersion = hb.version() == null ? HANDBUCH_VORGABE : hb.version();
+        melde.accept(new Status(OK, I18n.t("status.handbuch", hb.text().getFileName(), hb.seiten(),
+                neuUmwandeln ? I18n.t("status.neuErstellt") : I18n.t("status.wiederverwendet"))));
+        if (hs != HandbuchSprache.DE) {
+            melde.accept(new Status(WARNUNG, I18n.t("status.handbuchSeiten")));
+        }
+        waehle(a, rf, melde, dateien, texte, new Text(Bearbeitet.Art.HANDBUCH,
+                Bearbeitet.schluessel(Bearbeitet.Art.HANDBUCH, hs.kuerzel()), I18n.t("ansicht.handbuch"),
+                Files.isRegularFile(hbOriginal) ? hbOriginal : hb.text(), hb.text(), false));
+
+        // 5. Release Notes (nur lokal)
+        Version ab = Version.aus(String.valueOf(hbVersion.teile().get(0)));
+        Path docs = a.docsOrdner();
+        if (docs != null && Files.isRegularFile(docs.resolve(ReleaseNotes.DATEINAME))) {
+            ReleaseNotes.Ergebnis rn = ReleaseNotes.auszug(docs, ab, ordner);
+            if (rn.datei() == null) {
+                melde.accept(new Status(WARNUNG, I18n.t("status.releaseLeer", ab)));
+            } else {
+                dateien.add(rn.datei());
+                melde.accept(new Status(OK, I18n.t("status.release", rn.datei().getFileName(),
+                        rn.abschnitte().size(), rn.installiert())));
+                // Original ist der frisch erzeugte Auszug; er wird neben der bearbeiteten Fassung aufbewahrt.
+                Path rnOriginal = Einstellungen.cache().resolve("release").resolve(rn.datei().getFileName());
+                Files.createDirectories(rnOriginal.getParent());
+                Files.copy(rn.datei(), rnOriginal, StandardCopyOption.REPLACE_EXISTING);
+                waehle(a, rf, melde, dateien, texte, new Text(Bearbeitet.Art.RELEASE,
+                        Bearbeitet.schluessel(Bearbeitet.Art.RELEASE, null), I18n.t("ansicht.release"),
+                        rnOriginal, rn.datei(), false));
+            }
+            Version datei = Version.aus(tcd.itrainVersion());
+            if (datei != null && rn.installiert() != null && datei.compareTo(rn.installiert()) > 0) {
+                melde.accept(new Status(WARNUNG, I18n.t("status.releaseAelter", datei, rn.installiert())));
+            }
+        } else {
+            if (!rf.frage(I18n.t("dialog.release.titel"), I18n.t("dialog.release.text"),
+                    I18n.t("knopf.weiter"), I18n.t("knopf.abbrechen"))) {
+                melde.accept(new Status(FEHLT, I18n.t("status.releaseFehlt")));
+                throw new Abbruch(I18n.t("status.abgebrochen"));
+            }
+            melde.accept(new Status(WARNUNG, I18n.t("status.releaseFehlt")));
+        }
+        Version datei = Version.aus(tcd.itrainVersion());
+        if (datei != null && datei.teile().get(0) < hbVersion.teile().get(0)) {
+            melde.accept(new Status(WARNUNG, I18n.t("status.versionAlt", tcd.itrainVersion(), hbVersion)));
+        }
+
+        // 6. Nachricht
+        String nachricht = nachricht(a, texte);
+        Files.writeString(ordner.resolve(NACHRICHT_DATEI), nachricht + "\n", StandardCharsets.UTF_8);
+        if (a.forumUrl() != null && !a.forumUrl().isBlank()) {
+            melde.accept(new Status(OK, I18n.t("status.forum", a.forumUrl().trim())));
+        }
+        melde.accept(new Status(OK, I18n.t("status.fertig", dateien.size(), groesse(dateien) / 1024, ordner)));
+        return new Ergebnis(dateien, nachricht, ordner, status, texte, a);
+    }
+
+    private static String nachricht(Auftrag a, List<Text> texte) {
+        List<String> namen = texte.stream().filter(Text::bearbeitet).map(x -> x.datei().getFileName().toString())
+                .toList();
+        return a.gruppe().nachricht(a.direkt(), a.sprache(), a.zugtabelle(), a.bahnsteige(), a.format(),
+                a.forumUrl(), namen);
+    }
+
+    /**
+     * Gibt es eine bearbeitete Fassung, fragt der Anwender, ob sie oder das Original verwendet wird. Bei der
+     * bearbeiteten Fassung ersetzt {@code Name_bearbeitet.txt} das Original im Arbeitsordner und in der Dateiliste.
+     */
+    private static void waehle(Auftrag a, Rueckfrage rf, Consumer<Status> melde, List<Path> dateien,
+            List<Text> texte, Text t) throws IOException {
+        var e = Bearbeitet.finde(a.arbeitsordner(), t.schluessel());
+        if (e.isEmpty()) {
+            texte.add(t);
+            return;
+        }
+        String text = I18n.t("dialog.bearbeitet.text", t.bezeichnung(), e.get().datei().getFileName(),
+                e.get().zeit());
+        if (Bearbeitet.originalGeaendert(e.get(), t.original())) {
+            text += "\n\n" + I18n.t("dialog.bearbeitet.neuesOriginal", e.get().basis(), t.original().getFileName());
+        }
+        if (!rf.frage(I18n.t("dialog.bearbeitet.titel"), text, I18n.t("knopf.bearbeitete"),
+                I18n.t("knopf.original"))) {
+            texte.add(t);
+            melde.accept(new Status(OK, I18n.t("status.originalVerwendet", t.bezeichnung())));
+            return;
+        }
+        Text neu = einsetzen(dateien, t, e.get().datei());
+        texte.add(neu);
+        melde.accept(new Status(WARNUNG, I18n.t("status.bearbeitetVerwendet", t.bezeichnung(),
+                neu.datei().getFileName())));
+    }
+
+    /** Kopiert die bearbeitete Fassung in den Ordner des Laufs und ersetzt damit die bisherige Datei. */
+    private static Text einsetzen(List<Path> dateien, Text t, Path bearbeitet) throws IOException {
+        Path ordner = t.datei().getParent();
+        Path ziel = ordner.resolve(Bearbeitet.dateiname(t.original()));
+        if (!ziel.equals(bearbeitet)) {
+            Files.copy(bearbeitet, ziel, StandardCopyOption.REPLACE_EXISTING);
+        }
+        if (!t.datei().equals(ziel)) {
+            Files.deleteIfExists(t.datei());
+        }
+        int i = dateien.indexOf(t.datei());
+        if (i >= 0) {
+            dateien.set(i, ziel);
+        } else {
+            dateien.add(ziel);
+        }
+        return new Text(t.art(), t.schluessel(), t.bezeichnung(), t.original(), ziel, true);
+    }
+
+    /**
+     * Nach dem Speichern im Ansichtsfenster: bearbeitete Fassung ablegen, in den Ordner des Laufs übernehmen und
+     * Dateiliste sowie Nachrichtentext neu bilden. {@code text == null} stellt das Original wieder her.
+     */
+    public static Ergebnis aendere(Ergebnis e, Text t, String text) throws IOException {
+        List<Path> dateien = new ArrayList<>(e.dateien());
+        List<Text> texte = new ArrayList<>(e.texte());
+        List<Status> status = new ArrayList<>(e.status());
+        Text neu;
+        if (text == null) {
+            Bearbeitet.verwerfen(e.auftrag().arbeitsordner(), t.schluessel());
+            Path ziel = e.ordner().resolve(t.original().getFileName());
+            Files.copy(t.original(), ziel, StandardCopyOption.REPLACE_EXISTING);
+            if (!t.datei().equals(ziel)) {
+                Files.deleteIfExists(t.datei());
+            }
+            int i = dateien.indexOf(t.datei());
+            if (i >= 0) {
+                dateien.set(i, ziel);
+            }
+            neu = new Text(t.art(), t.schluessel(), t.bezeichnung(), t.original(), ziel, false);
+            status.add(new Status(OK, I18n.t("status.originalVerwendet", t.bezeichnung())));
+        } else {
+            Path gespeichert = Bearbeitet.speichern(e.auftrag().arbeitsordner(), t.schluessel(), t.original(), text);
+            neu = einsetzen(dateien, t, gespeichert);
+            status.add(new Status(WARNUNG, I18n.t("status.bearbeitetGespeichert", t.bezeichnung(),
+                    neu.datei().getFileName())));
+        }
+        texte.set(texte.indexOf(t), neu);
+        String nachricht = nachricht(e.auftrag(), texte);
+        Files.writeString(e.ordner().resolve(NACHRICHT_DATEI), nachricht + "\n", StandardCharsets.UTF_8);
+        return new Ergebnis(dateien, nachricht, e.ordner(), status, texte, e.auftrag());
+    }
+
+    private static String mb(long bytes) {
+        return bytes > 0 ? String.valueOf(Math.round(bytes / (1024.0 * 1024.0))) : "?";
+    }
+
+    /** Entfernt Dateien eines früheren Laufs (nur Dateien, keine Unterordner). */
+    private static void leeren(Path ordner) throws IOException {
+        try (Stream<Path> s = Files.list(ordner)) {
+            for (Path p : s.filter(Files::isRegularFile).toList()) {
+                Files.delete(p);
+            }
+        }
+    }
+
+    /** Gesamtgröße der Dateien in Byte. */
+    public static long groesse(List<Path> dateien) {
+        long summe = 0;
+        for (Path p : dateien) {
+            try {
+                summe += Files.size(p);
+            } catch (IOException ex) {
+                // nur für die Anzeige
+            }
+        }
+        return summe;
+    }
+}

@@ -1,0 +1,57 @@
+iTrain-Analyse – Help
+
+WHAT THE PROGRAM IS FOR
+The program collects all files the analysis prompt needs: the prompt, the layout file, the manual as text with page markers and the release notes. The analysis itself is done by your AI assistant. The program sends nothing to an AI and does not change your layout file.
+
+IMPORTANT: FREE AND PAID AI SERVICES
+An analysis is a very large task: manual (about 500 KB of text), layout file and prompt together. All providers limit usage, free plans especially. There the analysis often stops, or the AI checks only part of the file.
+In the author's experience (as of November 2026), only Claude with the paid Pro plan carried out the analysis flawlessly. Other AI assistants and free plans ran into their usage limits and were overloaded by such an analysis.
+Claude Pro has usage limits too. According to Anthropic, however, they are at least five times the free plan per session and reset every five hours.
+The Pro plan can be cancelled monthly. If you only want to analyse for a while, register at claude.ai, take out Pro for one month, pay and cancel right away. The cancellation only takes effect at the end of the paid month; until then Pro remains usable. This gives you about 30 days in which you can analyse as much as the limits allow. If you do not want to renew, cancel at least 24 hours before the next billing date.
+Prices and terms may change; the information on claude.ai applies.
+
+BEGINNER OR ADVANCED
+Advanced: the complete analysis with the prompt, as described on itrainplus.de.
+Beginner: a prompt that works with you step by step. It is still under development.
+
+HOW IT WORKS
+1. Choose the layout file. The list shows the files from the iTrain folder "layouts", the most recently changed at the top. "Other …" lets you choose a file elsewhere.
+2. Choose the prompt language: Deutsch/Nederlands or English/Français/Español/Italiano.
+3. Optionally direct mode: the AI then asks no questions and delivers everything in one reply. Below it choose language, format and the two extras.
+4. Optionally "Include forum post" and enter the address of the post. The address is added to the text for the chat; the AI is asked to open the post and include the problem described.
+5. Click "Assemble". The "Progress" field shows what was collected and what is missing.
+6. Then the window with the analysis package opens. Open a new, empty chat in your AI assistant, drag the blue box with all files into the message field, add the text with "Copy" and send. The window can be printed.
+Files and text are also on the clipboard: Ctrl+V (Mac: Cmd+V) in the message field pastes them if your chat interface supports it.
+
+WHAT IS COLLECTED
+Prompt: comes from the web server itrainplus.de. A version is included in the program. At every start the program checks whether there is a newer one on the server and asks before downloading. A local folder can be set instead of the server.
+Manual: comes from the Berros download page. At start the program checks whether there is a newer version and asks before downloading. The PDF is converted to text once; each page begins with "===== Seite x von N =====" so that the AI can give page references.
+Release notes: come from the docs folder of your iTrain installation, shortened to the versions from 6.0 on. If they are missing, the program asks whether to continue anyway.
+Layout file: the .tcdz is unpacked; the AI gets the .tcd inside.
+Everything is stored in the working folder. Prompt, manual PDF and manual text are reused for the next analysis as long as they are current.
+
+EXTRAS
+Extra 1 is the train table, extra 2 the check of platforms, block lengths and stop points. From prompt 2.3 on they can be chosen separately. In direct mode the program writes e.g. "Extras Train table and Platforms" or "Extras Platforms" into the text for the chat; in dialogue mode the AI asks with four answers: both, train table only, platforms only, none.
+
+ROUTES
+From prompt 2.3 on the AI checks all train routes for feasibility in every analysis: whether the blocks exist, whether they follow each other in the track plan in the given direction, whether the option "Strikt" (strict) can be met, whether repeated routes end where they start, and whether lists with "Optimal length" contain a suitable block. If there is nothing to report, "No findings" says: Routes checked, no findings.
+
+VIEW
+After assembling, the "View" menu shows the prompt text, the release notes text and the manual text in a separate window. Before that the entries are greyed out. With "Edit" you can extend the text, e.g. append your own check rules to the prompt. Copy, paste and cut work with Ctrl+C, Ctrl+V and Ctrl+X (Mac: Cmd) or with the buttons.
+"Save" stores the version as "…_bearbeitet.txt" in the subfolder "Bearbeitet" of the working folder and thereby replaces the original on the clipboard, in the result window and in the layout folder. The original is kept; "Restore original" switches back. The text for the chat names the edited files for the AI, and the program points this out to you when copying.
+At the next assembly the program asks whether to use the edited version or the original. If the original has changed in the meantime (e.g. a new prompt), the question says so.
+
+IF PASTING DOES NOT WORK
+Some chat interfaces do not accept files from the clipboard. Then drag the files from the result window or from the working folder ("Open working folder") into the chat and copy the text with "Copy".
+If the AI rejects the .tcd, switch on "Attach layout file as .tcd.xml" and assemble again.
+
+SETTINGS
+Settings > Preferences:
+Paths: prompt source (web server or local folder), folder of the layout files, iTrain docs folder, address and language of the manual.
+Working folder: one subfolder per layout with the files for the chat, plus the cache .cache.
+Colours: light or dark.
+Language: language of the user interface.
+
+NOTES
+Your layout file is sent to the AI provider when you paste it.
+Any AI can be wrong. Check findings in iTrain before you change anything, and back up your project first.

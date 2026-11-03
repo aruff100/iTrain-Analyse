@@ -1,0 +1,84 @@
+name: Installer bauen und veröffentlichen
+
+# Baut für Windows, macOS und Linux jeweils einen nativen Installer
+# (.msi / .dmg / .deb) über "./gradlew jpackage" (siehe build.gradle.kts,
+# jlink { jpackage { ... } }). jpackage kann nicht für andere Plattformen
+# bauen, deshalb läuft der Workflow auf drei Runnern parallel.
+# Gleicher Aufbau wie in iTrain_import_export.
+#
+# Auslöser:
+#   - Push eines Tags "v*" (z. B. "v1.0"): baut alle drei Installer und legt
+#     ein GitHub-Release mit den drei Dateien an. Erst dann zeigt die Seite
+#     itrainplus.de/analyse.html den Programm-Download an.
+#   - Manuell über "Run workflow" (workflow_dispatch): nur Artefakte, kein Release.
+#
+# Das JDK für Gradle selbst ist Temurin 21; das Programm wird mit der in
+# build.gradle.kts verlangten Toolchain (Liberica 25) gebaut, die der
+# foojay-Resolver automatisch lädt.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Quellcode auschecken
+        uses: actions/checkout@v4
+
+      - name: JDK 21 für Gradle einrichten
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: fakeroot installieren (für jpackage --type deb unter Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y fakeroot
+
+      - name: Gradle-Wrapper ausführbar machen (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: chmod +x ./gradlew
+
+      - name: Tests
+        shell: bash
+        run: ./gradlew test --no-daemon
+
+      - name: Installer bauen (jpackage)
+        shell: bash
+        run: ./gradlew jpackage --no-daemon
+
+      - name: Installer als Artefakt hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ matrix.os }}
+          path: |
+            build/jpackage/*.msi
+            build/jpackage/*.dmg
+            build/jpackage/*.deb
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Alle Installer-Artefakte herunterladen
+        uses: actions/download-artifact@v4
+        with:
+          path: installers
+
+      - name: GitHub-Release mit allen drei Installern erstellen
+        uses: softprops/action-gh-release@v2
+        with:
+          files: installers/**/*
+          generate_release_notes: true

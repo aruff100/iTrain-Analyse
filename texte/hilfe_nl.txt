@@ -1,0 +1,57 @@
+iTrain-Analyse – Help
+
+WAARVOOR HET PROGRAMMA DIENT
+Het programma verzamelt alle bestanden die de analyseprompt nodig heeft: de prompt, het layoutbestand, de handleiding als tekst met paginamarkeringen en de release notes. De analyse zelf doet uw AI-assistent. Het programma stuurt niets naar een AI en verandert uw layoutbestand niet.
+
+BELANGRIJK: GRATIS EN BETAALDE AI-DIENSTEN
+Een analyse is een zeer grote opdracht: handleiding (ongeveer 500 KB tekst), layoutbestand en prompt samen. Alle aanbieders beperken het gebruik, gratis accounts in het bijzonder. Daar breekt de analyse vaak af, of controleert de AI maar een deel.
+Volgens de ervaring van de auteur (stand november 2026) voerde alleen Claude met het betaalde Pro-abonnement de analyse foutloos uit. Andere AI-assistenten en gratis accounts liepen tegen hun gebruikslimieten aan en waren met zo'n analyse overbelast.
+Ook Claude Pro heeft gebruikslimieten. Volgens Anthropic liggen die echter op minstens vijf keer het gratis account per sessie en worden ze elke vijf uur teruggezet.
+Het Pro-abonnement is maandelijks opzegbaar. Wie maar een tijdje wil analyseren, registreert zich bij claude.ai, sluit Pro af voor één maand, betaalt en zegt meteen weer op. De opzegging gaat pas in aan het einde van de betaalde maand; tot dan blijft Pro bruikbaar. Zo heeft u ongeveer 30 dagen waarin u zoveel kunt analyseren als de limieten toelaten. Wie niet wil verlengen, zegt minstens 24 uur voor de volgende factuurdatum op.
+Prijzen en voorwaarden kunnen veranderen; de informatie op claude.ai is bepalend.
+
+BEGINNER OF GEVORDERD
+Gevorderd: de volledige analyse met de prompt, zoals beschreven op itrainplus.de.
+Beginner: een prompt die stap voor stap met u werkt. Deze is nog in ontwikkeling.
+
+ZO WERKT HET
+1. Kies het layoutbestand. De lijst toont de bestanden uit de iTrain-map "layouts", het laatst gewijzigde bovenaan. Met "Andere …" kiest u een bestand op een andere plek.
+2. Kies de taal van de prompt: Deutsch/Nederlands of English/Français/Español/Italiano.
+3. Eventueel directe modus: de AI stelt dan geen vragen en levert alles in één antwoord. Kies daaronder taal, formaat en de twee aanvullingen.
+4. Eventueel "Forumbericht meenemen" en het adres van het bericht invullen. Het adres wordt in de tekst voor de chat opgenomen; de AI wordt gevraagd het bericht te openen en het beschreven probleem mee te nemen.
+5. Klik op "Samenstellen". Het veld "Voortgang" toont wat is verzameld en wat ontbreekt.
+6. Daarna opent het venster met het analysepakket. Open een nieuwe, lege chat in uw AI-assistent, sleep het blauwe vak met alle bestanden naar het berichtveld, voeg de tekst toe met "Kopiëren" en verzend. Het venster kan worden afgedrukt.
+Bestanden en tekst staan ook op het klembord: Ctrl+V (Mac: Cmd+V) in het berichtveld plakt ze, als uw chatomgeving dat ondersteunt.
+
+WAT ER WORDT VERZAMELD
+Prompt: komt van de webserver itrainplus.de. Een versie zit in het programma. Bij elke start controleert het programma of er een nieuwere op de server staat en vraagt het voor het downloaden. In plaats van de server kan een lokale map worden ingesteld.
+Handleiding: komt van de downloadpagina van Berros. Bij de start controleert het programma of er een nieuwere versie is en vraagt het voor het downloaden. De PDF wordt één keer omgezet naar tekst; elke pagina begint met "===== Seite x von N =====", zodat de AI paginaverwijzingen kan geven.
+Release notes: komen uit de docs-map van uw iTrain-installatie, ingekort tot de versies vanaf 6.0. Ontbreken ze, dan vraagt het programma of het toch verder moet.
+Layoutbestand: de .tcdz wordt uitgepakt; de AI krijgt de .tcd daaruit.
+Alles staat in de werkmap. Prompt, handleiding-PDF en handleidingtekst worden bij de volgende analyse hergebruikt zolang ze actueel zijn.
+
+AANVULLINGEN
+Aanvulling 1 is de treintabel, aanvulling 2 de controle van perrons, bloklengtes en stoppunten. Vanaf prompt 2.3 zijn ze apart te kiezen. In de directe modus schrijft het programma bijv. „Zusätze Zugtabelle und Bahnsteige” of „Zusätze Bahnsteige” in de tekst voor de chat; in de dialoogmodus vraagt de AI met vier antwoorden: beide, alleen treintabel, alleen perrons, geen.
+
+ROUTES
+Vanaf prompt 2.3 controleert de AI in elke analyse alle treinroutes op uitvoerbaarheid: of de blokken bestaan, of ze in het sporenplan in de opgegeven richting op elkaar volgen, of de optie „Strikt” haalbaar is, of herhaalde routes eindigen waar ze beginnen en of lijsten met „Optimale lengte” een passend blok bevatten. Is er niets te melden, dan staat onder „Zonder bevindingen”: Routes gecontroleerd, geen bevindingen.
+
+WEERGAVE
+Na het samenstellen toont het menu „Weergave” de prompttekst, de tekst van de release notes en de tekst van de handleiding in een apart venster. Daarvoor zijn de items grijs. Met „Bewerken” kunt u de tekst aanvullen, bijv. eigen controleregels aan de prompt toevoegen. Kopiëren, plakken en knippen gaan met Ctrl+C, Ctrl+V en Ctrl+X (Mac: Cmd) of met de knoppen.
+„Opslaan” bewaart de versie als „…_bearbeitet.txt” in de submap „Bearbeitet” van de werkmap en vervangt daarmee het origineel op het klembord, in het resultaatvenster en in de layoutmap. Het origineel blijft bewaard; „Origineel herstellen” schakelt terug. De tekst voor de chat noemt de bewerkte bestanden voor de AI, en het programma wijst u er bij het kopiëren op.
+Bij de volgende samenstelling vraagt het programma of de bewerkte versie of het origineel gebruikt moet worden. Is het origineel intussen gewijzigd (bijv. een nieuwe prompt), dan staat dat in de vraag.
+
+ALS PLAKKEN NIET LUKT
+Sommige chatomgevingen nemen geen bestanden van het klembord aan. Sleep de bestanden dan uit het resultaatvenster of uit de werkmap ("Werkmap openen") naar de chat en kopieer de tekst met "Kopiëren".
+Weigert de AI de .tcd, zet dan "Layoutbestand als .tcd.xml bijvoegen" aan en stel opnieuw samen.
+
+INSTELLINGEN
+Instellingen > Voorkeuren:
+Paden: promptbron (webserver of lokale map), map van de layoutbestanden, iTrain-docs-map, adres en taal van de handleiding.
+Werkmap: per layout een submap met de bestanden voor de chat, plus de cache .cache.
+Kleuren: licht of donker.
+Taal: taal van de interface.
+
+OPMERKINGEN
+Uw layoutbestand wordt bij het plakken naar de aanbieder van de AI gestuurd.
+Elke AI kan zich vergissen. Controleer bevindingen in iTrain voordat u iets verandert, en maak eerst een back-up van uw project.

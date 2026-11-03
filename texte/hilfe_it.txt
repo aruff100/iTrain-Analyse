@@ -1,0 +1,57 @@
+iTrain-Analyse – Aiuto
+
+A COSA SERVE IL PROGRAMMA
+Il programma raccoglie tutti i file di cui ha bisogno il prompt di analisi: il prompt, il file del plastico, il manuale come testo con numeri di pagina e le note di rilascio. L'analisi vera e propria la esegue il vostro assistente IA. Il programma non invia nulla a un'IA e non modifica il vostro file del plastico.
+
+IMPORTANTE: SERVIZI IA GRATUITI E A PAGAMENTO
+Un'analisi è un compito molto grande: manuale (circa 500 KB di testo), file del plastico e prompt insieme. Tutti i fornitori limitano l'utilizzo, in particolare negli accessi gratuiti. Lì l'analisi spesso si interrompe, oppure l'IA ne controlla solo una parte.
+Secondo l'esperienza dell'autore (novembre 2026), solo Claude con l'abbonamento a pagamento Pro ha eseguito l'analisi senza errori. Altri assistenti IA e gli accessi gratuiti hanno raggiunto i loro limiti di utilizzo e sono risultati sovraccarichi con un'analisi del genere.
+Anche Claude Pro ha limiti di utilizzo. Secondo Anthropic, però, sono almeno cinque volte quelli dell'accesso gratuito per sessione e si azzerano ogni cinque ore.
+L'abbonamento Pro si può disdire mensilmente. Chi vuole analizzare solo per un periodo può registrarsi su claude.ai, sottoscrivere Pro per un mese, pagare e disdire subito. La disdetta ha effetto solo alla fine del mese pagato; fino ad allora Pro resta utilizzabile. Avete così circa 30 giorni per analizzare quanto consentono i limiti. Chi non vuole rinnovare deve disdire almeno 24 ore prima della successiva data di addebito.
+Prezzi e condizioni possono cambiare; fanno fede le informazioni su claude.ai.
+
+PRINCIPIANTE O AVANZATO
+Avanzato: l'analisi completa con il prompt, come descritto su itrainplus.de.
+Principiante: un prompt che lavora con voi passo dopo passo. È ancora in sviluppo.
+
+COME FUNZIONA
+1. Scegliete il file del plastico. L'elenco mostra i file della cartella di iTrain «layouts», il più recente in alto. Con «Altro …» scegliete un file in un'altra posizione.
+2. Scegliete la lingua del prompt: Deutsch/Nederlands oppure English/Français/Español/Italiano.
+3. Facoltativamente, modalità diretta: l'IA non fa domande e fornisce tutto in un'unica risposta. Sotto scegliete lingua, formato e i due supplementi.
+4. Facoltativamente, «Includere un messaggio del forum» e inserire l'indirizzo del messaggio. L'indirizzo viene aggiunto al testo per la chat; si chiede all'IA di aprire il messaggio e di tenere conto del problema descritto.
+5. Fate clic su «Prepara». Il campo «Avanzamento» mostra cosa è stato raccolto e cosa manca.
+6. Si apre poi la finestra con il pacchetto di analisi. Aprite una nuova chat vuota nel vostro assistente IA, trascinate il riquadro blu con tutti i file nel campo del messaggio, aggiungete il testo con «Copia» e inviate. La finestra si può stampare.
+File e testo sono anche negli appunti: Ctrl+V (Mac: Cmd+V) nel campo del messaggio li incolla, se l'interfaccia della chat lo supporta.
+
+COSA VIENE RACCOLTO
+Prompt: proviene dal server web itrainplus.de. Una versione è inclusa nel programma. A ogni avvio il programma verifica se sul server ce n'è una più recente e chiede prima di scaricarla. Al posto del server si può impostare una cartella locale.
+Manuale: proviene dalla pagina di download di Berros. All'avvio il programma verifica se esiste una versione più recente e chiede prima di scaricarla. Il PDF viene convertito in testo una sola volta; ogni pagina inizia con «===== Seite x von N =====» affinché l'IA possa indicare i numeri di pagina.
+Note di rilascio: provengono dalla cartella docs della vostra installazione di iTrain, ridotte alle versioni dalla 6.0 in poi. Se mancano, il programma chiede se continuare comunque.
+File del plastico: il .tcdz viene decompresso; l'IA riceve il .tcd contenuto.
+Tutto viene salvato nella cartella di lavoro. Prompt, PDF e testo del manuale vengono riutilizzati nell'analisi successiva finché sono aggiornati.
+
+SUPPLEMENTI
+Il supplemento 1 è la tabella dei treni, il supplemento 2 la verifica di marciapiedi, lunghezze dei blocchi e punti di arresto. Dal prompt 2.3 si possono scegliere separatamente. In modalità diretta il programma scrive ad es. «Extras Train table and Platforms» o «Extras Platforms» nel testo per la chat; in modalità dialogo l'IA chiede con quattro risposte: entrambi, solo tabella dei treni, solo marciapiedi, nessuno.
+
+PERCORSI
+Dal prompt 2.3 l'IA verifica in ogni analisi l'eseguibilità di tutti i percorsi: se i blocchi esistono, se si susseguono nel piano dei binari nella direzione indicata, se l'opzione «Strikt» è rispettabile, se i percorsi ripetuti terminano dove iniziano e se gli elenchi con «Lunghezza ottimale» contengono un blocco adatto. Se non c'è nulla da segnalare, in «Senza rilievi» compare: Percorsi verificati, senza rilievi.
+
+VISUALIZZA
+Dopo l'assemblaggio, il menu «Visualizza» mostra il testo del prompt, quello delle note di rilascio e quello del manuale in una finestra separata. Prima le voci sono disattivate. Con «Modifica» può integrare il testo, ad es. aggiungere regole proprie al prompt. Copia, incolla e taglia funzionano con Ctrl+C, Ctrl+V e Ctrl+X (Mac: Cmd) o con i pulsanti.
+«Salva» memorizza la versione come «…_bearbeitet.txt» nella sottocartella «Bearbeitet» della cartella di lavoro e sostituisce così l'originale negli appunti, nella finestra dei risultati e nella cartella del plastico. L'originale viene conservato; «Ripristina originale» torna indietro. Il testo per la chat indica all'IA i file modificati, e il programma lo segnala durante la copia.
+Al successivo assemblaggio il programma chiede se usare la versione modificata o l'originale. Se nel frattempo l'originale è cambiato (ad es. un nuovo prompt), la domanda lo indica.
+
+SE L'INCOLLA NON FUNZIONA
+Alcune interfacce di chat non accettano file dagli appunti. Trascinate allora i file dalla finestra dei risultati o dalla cartella di lavoro («Apri cartella di lavoro») nella chat e copiate il testo con «Copia».
+Se l'IA rifiuta il .tcd, attivate «Allegare il file del plastico come .tcd.xml» e preparate di nuovo.
+
+IMPOSTAZIONI
+Impostazioni > Preferenze:
+Percorsi: origine del prompt (server web o cartella locale), cartella dei file del plastico, cartella docs di iTrain, indirizzo e lingua del manuale.
+Cartella di lavoro: una sottocartella per plastico con i file per la chat, più la cache .cache.
+Colori: chiaro o scuro.
+Lingua: lingua dell'interfaccia.
+
+NOTE
+Il vostro file del plastico viene trasmesso al fornitore dell'IA quando lo incollate.
+Ogni IA può sbagliare. Verificate i risultati in iTrain prima di modificare qualcosa e salvate prima il vostro progetto.
