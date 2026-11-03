@@ -96,9 +96,12 @@ Start); Gradle-Tests laufen nicht im reinen Modulsystem und merken das nicht.
 ## Release
 
 `.github/workflows/release.yml` wie in iTrain_import_export: Tag `v*` baut .msi/.dmg/.deb und legt ein
-GitHub-Release an. `itrainplus.de/analyse.html` (Abschnitt Download) fragt die GitHub-API nach dem
-neuesten Release von `aruff100/iTrain-Analyse` und zeigt den Programm-Download nur, wenn es eines gibt
-(Repository muss öffentlich sein). `version` in build.gradle.kts = appVersion (macOS verlangt ≥ 1).
+GitHub-Release an. Tags lassen sich aus der Claude-Sitzung nicht pushen; das Release (mit neuem Tag) wird auf
+GitHub unter "Releases" > "Draft a new release" angelegt, das startet den Build (1.0 am 03.11.2026).
+`itrainplus.de/analyse.html`, Abschnitt Download, verlinkt die Installer direkt
+(`releases/download/v<version>/…`): bei jeder neuen Version Links und Versionsnummer dort und auf
+`index.html` anpassen. Die Prompt-Dateien verlinkt die Seite aus `/analyse-daten/`; das Handbuch nur als
+Link auf Berros (Rechte bei Berros). `version` in build.gradle.kts = appVersion (macOS verlangt ≥ 1).
 
 ## Build & Run
 
