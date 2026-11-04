@@ -11,7 +11,7 @@ plugins {
 }
 
 group = "com.example"
-version = "1.0"
+version = "1.1"
 
 repositories {
     mavenCentral()
@@ -59,7 +59,8 @@ tasks.register("promptManifest") {
     description = "Erzeugt server/analyse-daten/manifest.properties"
     doLast {
         val dir = file("server/analyse-daten")
-        val gruppen = linkedMapOf("DE_NL" to "Prompt_Analyse_DE_NL", "EN_FR_ES_IT" to "Prompt_Analysis_EN_FR_ES_IT")
+        val gruppen = linkedMapOf("DE_NL" to "Prompt_Analyse_DE_NL", "EN_FR_ES_IT" to "Prompt_Analysis_EN_FR_ES_IT",
+            "ANFAENGER_DE_NL" to "Prompt_Anfaenger_DE_NL", "ANFAENGER_EN_FR_ES_IT" to "Prompt_Beginners_EN_FR_ES_IT")
         val sb = StringBuilder("# Prompt-Dateien fuer iTrain-Analyse. Erzeugt von \"gradlew promptManifest\" - nicht von Hand aendern.\n")
         for ((key, praefix) in gruppen) {
             val datei = dir.listFiles { f -> f.name.startsWith(praefix) && f.name.endsWith(".txt") }

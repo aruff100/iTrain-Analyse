@@ -12,7 +12,7 @@ Les prix et conditions peuvent changer ; les informations de claude.ai font foi.
 
 DÉBUTANT OU AVANCÉ
 Avancé : l'analyse complète avec le prompt, comme décrit sur itrainplus.de.
-Débutant : un prompt qui travaille pas à pas avec vous. Il est encore en développement.
+Débutant : le prompt débutant. Il vérifie votre projet par tours, un thème avec au plus trois points par tour, et explique chaque point avec les clics et la page du manuel. Après chaque tour, vous modifiez les points dans iTrain, lancez le diagnostic, enregistrez et téléversez à nouveau le .tcdz avec une image du diagnostic dans le même chat. Le programme ne sert qu'au démarrage. Le mode direct, les compléments, le message du forum et les notes de version ne sont pas utilisés. Le bouton « Guide débutant » explique la procédure en détail, y compris les coûts et les limites. Le prompt a été testé avec Claude sur un réseau d'essai avec un bon résultat.
 
 MODE D'EMPLOI
 1. Choisissez le fichier de réseau. La liste affiche les fichiers du dossier iTrain « layouts », le plus récemment modifié en haut. « Autre … » permet de choisir un fichier ailleurs.

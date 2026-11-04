@@ -147,10 +147,12 @@ public final class Zusammenstellung {
                 Bearbeitet.schluessel(Bearbeitet.Art.HANDBUCH, hs.kuerzel()), I18n.t("ansicht.handbuch"),
                 Files.isRegularFile(hbOriginal) ? hbOriginal : hb.text(), hb.text(), false));
 
-        // 5. Release Notes (nur lokal)
+        // 5. Release Notes (nur lokal). Der Prompt für Anfänger braucht sie nicht (Anwender 04.11.2026).
         Version ab = Version.aus(String.valueOf(hbVersion.teile().get(0)));
         Path docs = a.docsOrdner();
-        if (docs != null && Files.isRegularFile(docs.resolve(ReleaseNotes.DATEINAME))) {
+        if (a.gruppe().anfaenger()) {
+            melde.accept(new Status(OK, I18n.t("status.releaseAnfaenger")));
+        } else if (docs != null && Files.isRegularFile(docs.resolve(ReleaseNotes.DATEINAME))) {
             ReleaseNotes.Ergebnis rn = ReleaseNotes.auszug(docs, ab, ordner);
             if (rn.datei() == null) {
                 melde.accept(new Status(WARNUNG, I18n.t("status.releaseLeer", ab)));

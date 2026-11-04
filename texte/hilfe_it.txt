@@ -12,7 +12,7 @@ Prezzi e condizioni possono cambiare; fanno fede le informazioni su claude.ai.
 
 PRINCIPIANTE O AVANZATO
 Avanzato: l'analisi completa con il prompt, come descritto su itrainplus.de.
-Principiante: un prompt che lavora con voi passo dopo passo. È ancora in sviluppo.
+Principiante: il prompt per principianti. Controlla il progetto a turni, un tema con al massimo tre punti per turno, e spiega ogni punto con i clic e la pagina del manuale. Dopo ogni turno modificate i punti in iTrain, eseguite la diagnostica, salvate e caricate di nuovo il .tcdz con un'immagine della diagnostica nella stessa chat. Il programma serve solo per iniziare. Modalità diretta, supplementi, messaggio del forum e note di rilascio non sono usati. Il pulsante «Guida principianti» spiega la procedura in dettaglio, anche costi e limiti. Il prompt è stato provato con Claude su un plastico di prova con un buon risultato.
 
 COME FUNZIONA
 1. Scegliete il file del plastico. L'elenco mostra i file della cartella di iTrain «layouts», il più recente in alto. Con «Altro …» scegliete un file in un'altra posizione.

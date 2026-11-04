@@ -12,7 +12,7 @@ Prices and terms may change; the information on claude.ai applies.
 
 BEGINNER OR ADVANCED
 Advanced: the complete analysis with the prompt, as described on itrainplus.de.
-Beginner: a prompt that works with you step by step. It is still under development.
+Beginner: the beginner prompt. It checks your project in rounds, one topic with at most three points per round, and explains every point with click steps and the manual page. After each round you change the points in iTrain, run the diagnostics, save and upload the .tcdz with a picture of the diagnostics again in the same chat. You only need the program for the start. Direct mode, extras, forum post and release notes are not used. The button "Beginner guide" explains the procedure in detail, including costs and limits. The prompt was tested with Claude on a test layout with a good result.
 
 HOW IT WORKS
 1. Choose the layout file. The list shows the files from the iTrain folder "layouts", the most recently changed at the top. "Other …" lets you choose a file elsewhere.

@@ -12,7 +12,7 @@ Los precios y condiciones pueden cambiar; prevalece la información de claude.ai
 
 PRINCIPIANTE O AVANZADO
 Avanzado: el análisis completo con el prompt, tal como se describe en itrainplus.de.
-Principiante: un prompt que trabaja con usted paso a paso. Todavía está en desarrollo.
+Principiante: el prompt para principiantes. Revisa su proyecto por rondas, un tema con un máximo de tres puntos por ronda, y explica cada punto con los clics y la página del manual. Después de cada ronda cambia los puntos en iTrain, ejecuta el diagnóstico, guarda y vuelve a subir el .tcdz con una imagen del diagnóstico en el mismo chat. El programa solo lo necesita para empezar. El modo directo, los complementos, la entrada del foro y las notas de la versión no se usan. El botón «Guía para principiantes» explica el procedimiento en detalle, también los costes y los límites. El prompt se probó con Claude en una maqueta de prueba con buen resultado.
 
 CÓMO FUNCIONA
 1. Elija el archivo de maqueta. La lista muestra los archivos de la carpeta de iTrain «layouts», el modificado más recientemente arriba. Con «Otro …» puede elegir un archivo en otro lugar.

@@ -48,7 +48,7 @@ public enum HandbuchSprache {
                 default -> EN;
             };
         }
-        return gruppe == Sprachgruppe.DE_NL ? DE : EN;
+        return gruppe.deutsch() ? DE : EN;
     }
 
     public static HandbuchSprache aus(String name) {

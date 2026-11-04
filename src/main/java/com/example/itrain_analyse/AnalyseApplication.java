@@ -42,7 +42,8 @@ import javafx.stage.Stage;
 
 /**
  * Hauptfenster: Kenntnisstand, Layout-Datei, Prompt-Sprache, Direktmodus mit Sprache/Format/Zusätzen,
- * Forumsbeitrag, Fortschritt. Beim Start prüft es Prompt (Webserver) und Handbuch auf neue Fassungen und fragt vor
+ * Forumsbeitrag, Fortschritt. Im Kenntnisstand "Anfänger" (Prompt für Anfänger, Runden) entfallen Direktmodus,
+ * Zusätze, Forumsbeitrag und Release Notes; beim Wählen erklärt {@link AnfaengerDialog} den Ablauf. Beim Start prüft es Prompt (Webserver) und Handbuch auf neue Fassungen und fragt vor
  * jedem Download. Nach dem Zusammenstellen öffnet sich das {@link ErgebnisFenster}.
  */
 public class AnalyseApplication extends Application {
@@ -66,6 +67,11 @@ public class AnalyseApplication extends Application {
     private Label forumHinweis;
     private Label forumTextLabel;
     private TextArea forumText;
+    private GridPane gitter;
+    private Label anfHinweis;
+    private Button anleitung;
+    private Button andereKnopf;
+    private Button neuLadenKnopf;
     private MenuItem ansichtPrompt;
     private MenuItem ansichtRelease;
     private MenuItem ansichtHandbuch;
@@ -104,6 +110,8 @@ public class AnalyseApplication extends Application {
         ToggleGroup tg = new ToggleGroup();
         fortgeschritten.setToggleGroup(tg);
         anfaenger.setToggleGroup(tg);
+        (Einstellungen.get(Einstellungen.MODUS, "fortgeschritten").equals("anfaenger") ? anfaenger : fortgeschritten)
+                .setSelected(true);
         HBox modusZeile = new HBox(12, new Label(I18n.t("modus.label")), fortgeschritten, anfaenger);
         modusZeile.setAlignment(Pos.CENTER_LEFT);
         modusZeile.setPadding(new Insets(12, 12, 0, 12));
@@ -112,10 +120,10 @@ public class AnalyseApplication extends Application {
         layout.setMaxWidth(Double.MAX_VALUE);
         layout.setCellFactory(lv -> new LayoutZelle());
         layout.setButtonCell(new LayoutZelle());
-        Button andere = Oberflaeche.farbe(new Button(I18n.t("knopf.andere")), Oberflaeche.LILA);
-        andere.setOnAction(e -> layoutWaehlen());
-        Button neuLaden = Oberflaeche.farbe(new Button(I18n.t("knopf.neuEinlesen")), Oberflaeche.LILA);
-        neuLaden.setOnAction(e -> layoutsLaden());
+        andereKnopf = Oberflaeche.farbe(new Button(I18n.t("knopf.andere")), Oberflaeche.LILA);
+        andereKnopf.setOnAction(e -> layoutWaehlen());
+        neuLadenKnopf = Oberflaeche.farbe(new Button(I18n.t("knopf.neuEinlesen")), Oberflaeche.LILA);
+        neuLadenKnopf.setOnAction(e -> layoutsLaden());
         gruppe = new ComboBox<>();
         alsXml = new CheckBox(I18n.t("feld.alsXml"));
         direkt = new CheckBox(I18n.t("feld.direkt"));
@@ -127,49 +135,40 @@ public class AnalyseApplication extends Application {
         forumUrl = new TextField();
         forumUrl.setPromptText("https://berros.eu/itrain/forum/viewtopic.php?p=…");
 
-        GridPane g = new GridPane();
-        g.setHgap(8);
-        g.setVgap(8);
-        ColumnConstraints c1 = new ColumnConstraints();
-        c1.setHgrow(Priority.ALWAYS);
-        ColumnConstraints c0 = new ColumnConstraints();
-        c0.setMinWidth(Region.USE_PREF_SIZE);
-        g.getColumnConstraints().addAll(c0, c1, new ColumnConstraints());
-        int z = 0;
-        g.addRow(z++, new Label(I18n.t("feld.layout")), layout, new HBox(6, neuLaden, andere));
-        g.addRow(z++, new Label(I18n.t("feld.promptSprache")), gruppe);
-        g.add(alsXml, 1, z++, 2, 1);
-        g.add(Oberflaeche.linie3d(), 0, z++, 3, 1);
-        g.add(direkt, 1, z++, 2, 1);
-        g.addRow(z++, new Label(I18n.t("feld.sprache")), sprache);
-        g.addRow(z++, new Label(I18n.t("feld.format")), format);
-        g.add(zugtabelle, 1, z++, 2, 1);
-        g.add(bahnsteige, 1, z++, 2, 1);
-        g.add(Oberflaeche.linie3d(), 0, z++, 3, 1);
-        g.add(forum, 1, z++, 2, 1);
         forumUrlLabel = new Label(I18n.t("feld.forumUrl"));
-        g.addRow(z++, forumUrlLabel, forumUrl);
-        GridPane.setColumnSpan(forumUrl, 2);
         // Das Forum verlangt eine Anmeldung, auch zum Lesen (Anwender 03.11.2026).
         forumHinweis = new Label(I18n.t("feld.forumHinweis"));
         forumHinweis.setWrapText(true);
         forumHinweis.setStyle("-fx-font-size: 11px; -fx-opacity: 0.85;");
         forumHinweis.setMinHeight(Region.USE_PREF_SIZE);
-        g.add(forumHinweis, 1, z++, 2, 1);
         forumTextLabel = new Label(I18n.t("feld.forumText"));
         forumText = new TextArea();
         forumText.setPrefRowCount(3);
         forumText.setWrapText(true);
         forumText.setPromptText(I18n.t("feld.forumTextLeer"));
-        g.add(forumTextLabel, 0, z);
-        g.add(forumText, 1, z++, 2, 1);
-        GridPane.setValignment(forumTextLabel, javafx.geometry.VPos.TOP);
+        anfHinweis = new Label(I18n.t("feld.anfHinweis"));
+        anfHinweis.setWrapText(true);
+        anfHinweis.setStyle("-fx-font-size: 11px; -fx-opacity: 0.85;");
+        anfHinweis.setMinHeight(Region.USE_PREF_SIZE);
+
+        gitter = new GridPane();
+        gitter.setHgap(8);
+        gitter.setVgap(8);
+        ColumnConstraints c1 = new ColumnConstraints();
+        c1.setHgrow(Priority.ALWAYS);
+        ColumnConstraints c0 = new ColumnConstraints();
+        c0.setMinWidth(Region.USE_PREF_SIZE);
+        gitter.getColumnConstraints().addAll(c0, c1, new ColumnConstraints());
 
         start = Oberflaeche.farbe(new Button(I18n.t("knopf.zusammenstellen")), Oberflaeche.GRUEN);
         start.setDefaultButton(true);
         ergebnisZeigen = Oberflaeche.farbe(new Button(I18n.t("knopf.ergebnis")), Oberflaeche.BLAU);
         oeffnen = Oberflaeche.farbe(new Button(I18n.t("knopf.ordnerOeffnen")), Oberflaeche.TUERKIS);
-        HBox knoepfe = new HBox(8, start, ergebnisZeigen, oeffnen);
+        anleitung = Oberflaeche.farbe(new Button(I18n.t("knopf.anleitung")), Oberflaeche.ORANGE);
+        anleitung.setOnAction(e -> AnfaengerDialog.zeige(stage));
+        anleitung.visibleProperty().bind(anfaenger.selectedProperty());
+        anleitung.managedProperty().bind(anfaenger.selectedProperty());
+        HBox knoepfe = new HBox(8, start, ergebnisZeigen, oeffnen, anleitung);
         protokoll = new TextArea();
         protokoll.setEditable(false);
         protokoll.setWrapText(true);
@@ -185,38 +184,27 @@ public class AnalyseApplication extends Application {
         symbol.visibleProperty().bind(protokoll.textProperty().isEmpty());
         StackPane protokollFeld = new StackPane(protokoll, symbol);
         VBox.setVgrow(protokollFeld, Priority.ALWAYS);
-        VBox fortgeschrittenTeil = new VBox(10, g, knoepfe, fortschritt, protokollFeld);
-        fortgeschrittenTeil.setPadding(new Insets(12));
-
-        Label inEntwicklung = new Label(I18n.t("anfaenger.titel"));
-        inEntwicklung.setStyle("-fx-font-size: 22px; -fx-font-weight: bold;");
-        Label anfText = new Label(I18n.t("anfaenger.text"));
-        anfText.setWrapText(true);
-        VBox anfaengerTeil = new VBox(10, inEntwicklung, anfText);
-        anfaengerTeil.setAlignment(Pos.CENTER);
-        anfaengerTeil.setPadding(new Insets(24));
-
-        StackPane mitte = new StackPane(fortgeschrittenTeil, anfaengerTeil);
-        fortgeschrittenTeil.visibleProperty().bind(fortgeschritten.selectedProperty());
-        anfaengerTeil.visibleProperty().bind(anfaenger.selectedProperty());
+        VBox mitte = new VBox(10, gitter, knoepfe, fortschritt, protokollFeld);
+        mitte.setPadding(new Insets(12));
 
         BorderPane wurzel = new BorderPane();
         wurzel.setTop(new VBox(menue(), modusZeile));
         wurzel.setCenter(mitte);
 
         // Werte
-        gruppe.getItems().setAll(Sprachgruppe.values());
+        boolean anf = anfaenger.isSelected();
+        gruppe.getItems().setAll(Sprachgruppe.von(anf));
         gruppe.setOnAction(e -> sprachenSetzen());
         format.getItems().setAll(Sprachgruppe.FORMATE);
         direkt.setOnAction(e -> schalten());
         forum.setOnAction(e -> schalten());
-        (Einstellungen.get(Einstellungen.MODUS, "fortgeschritten").equals("anfaenger") ? anfaenger : fortgeschritten)
-                .setSelected(true);
+        Sprachgruppe gespeicherteGruppe;
         try {
-            gruppe.setValue(Sprachgruppe.valueOf(Einstellungen.get("gruppe", Sprachgruppe.DE_NL.name())));
+            gespeicherteGruppe = Sprachgruppe.valueOf(Einstellungen.get("gruppe", Sprachgruppe.DE_NL.name()));
         } catch (IllegalArgumentException ex) {
-            gruppe.setValue(Sprachgruppe.DE_NL);
+            gespeicherteGruppe = Sprachgruppe.DE_NL;
         }
+        gruppe.setValue(gespeicherteGruppe.fuer(anf));
         sprachenSetzen();
         String gespeichert = Einstellungen.get("sprache", "");
         if (sprache.getItems().contains(gespeichert)) {
@@ -231,7 +219,19 @@ public class AnalyseApplication extends Application {
         forumUrl.setText(forumAdresse);
         forumText.setText(forumInhalt);
         schalten();
+        gitterFuellen();
         layoutsLaden();
+        // Wechsel des Kenntnisstands: Felder anpassen; beim Wählen von "Anfänger" den Ablauf erklären.
+        anfaenger.selectedProperty().addListener((o, alt, neu) -> {
+            Sprachgruppe vorher = gruppe.getValue();
+            gruppe.getItems().setAll(Sprachgruppe.von(neu));
+            gruppe.setValue((vorher == null ? Sprachgruppe.DE_NL : vorher).fuer(neu));
+            sprachenSetzen();
+            gitterFuellen();
+            if (neu) {
+                Platform.runLater(() -> AnfaengerDialog.beiWahl(stage));
+            }
+        });
 
         start.setOnAction(e -> zusammenstellen());
         ergebnisZeigen.setOnAction(e -> {
@@ -350,7 +350,7 @@ public class AnalyseApplication extends Application {
         }
         Einstellungen.set(Einstellungen.MODUS, anfaenger.isSelected() ? "anfaenger" : "fortgeschritten");
         Einstellungen.set(Einstellungen.LETZTES_LAYOUT, layout.getValue() == null ? "" : layout.getValue().toString());
-        Einstellungen.set("gruppe", gruppe.getValue().name());
+        Einstellungen.set("gruppe", gruppe.getValue().fuer(false).name());
         Einstellungen.set("sprache", sprache.getValue());
         Einstellungen.set("format", format.getValue());
         Einstellungen.setBool("alsXml", alsXml.isSelected());
@@ -360,6 +360,36 @@ public class AnalyseApplication extends Application {
         forumGewaehlt = forum.isSelected();
         forumAdresse = forumUrl.getText().trim();
         forumInhalt = forumText.getText();
+    }
+
+    /**
+     * Füllt das Formular je nach Kenntnisstand. Anfänger: nur Layout-Datei, Prompt-Sprache, .tcd.xml und ein Hinweis;
+     * Direktmodus, Zusätze und Forumsbeitrag entfallen (Anwender 04.11.2026).
+     */
+    private void gitterFuellen() {
+        gitter.getChildren().clear();
+        int z = 0;
+        gitter.addRow(z++, new Label(I18n.t("feld.layout")), layout, new HBox(6, neuLadenKnopf, andereKnopf));
+        gitter.addRow(z++, new Label(I18n.t("feld.promptSprache")), gruppe);
+        gitter.add(alsXml, 1, z++, 2, 1);
+        if (anfaenger.isSelected()) {
+            gitter.add(anfHinweis, 1, z++, 2, 1);
+            return;
+        }
+        gitter.add(Oberflaeche.linie3d(), 0, z++, 3, 1);
+        gitter.add(direkt, 1, z++, 2, 1);
+        gitter.addRow(z++, new Label(I18n.t("feld.sprache")), sprache);
+        gitter.addRow(z++, new Label(I18n.t("feld.format")), format);
+        gitter.add(zugtabelle, 1, z++, 2, 1);
+        gitter.add(bahnsteige, 1, z++, 2, 1);
+        gitter.add(Oberflaeche.linie3d(), 0, z++, 3, 1);
+        gitter.add(forum, 1, z++, 2, 1);
+        gitter.addRow(z++, forumUrlLabel, forumUrl);
+        GridPane.setColumnSpan(forumUrl, 2);
+        gitter.add(forumHinweis, 1, z++, 2, 1);
+        gitter.add(forumTextLabel, 0, z);
+        gitter.add(forumText, 1, z, 2, 1);
+        GridPane.setValignment(forumTextLabel, javafx.geometry.VPos.TOP);
     }
 
     private void sprachenSetzen() {
@@ -458,7 +488,7 @@ public class AnalyseApplication extends Application {
     }
 
     private boolean direktWert() {
-        return fx(() -> direkt.isSelected());
+        return fx(() -> direkt.isSelected() && !anfaenger.isSelected());
     }
 
     private String spracheWert() {
@@ -487,17 +517,20 @@ public class AnalyseApplication extends Application {
     private void zusammenstellen() {
         speichern();
         protokoll.clear();
+        boolean anf = anfaenger.isSelected();
         String url = forumUrl.getText().trim();
         boolean mitText = !forumText.getText().isBlank();
-        if (forum.isSelected() && !(url.isEmpty() && mitText) && !url.matches("(?i)https?://\\S+")) {
+        boolean mitForum = forum.isSelected() && !anf;
+        if (mitForum && !(url.isEmpty() && mitText) && !url.matches("(?i)https?://\\S+")) {
             melde(Zusammenstellung.FEHLT + " " + I18n.t("status.forumUngueltig"));
             return;
         }
         letztesLayout = layout.getValue() == null ? "" : layout.getValue().getFileName().toString();
         Zusammenstellung.Auftrag auftrag = new Zusammenstellung.Auftrag(layout.getValue(), gruppe.getValue(),
-                Einstellungen.docsOrdner(), Einstellungen.arbeitsordner(), alsXml.isSelected(), direkt.isSelected(),
-                sprache.getValue(), zugtabelle.isSelected(), bahnsteige.isSelected(), format.getValue(),
-                forum.isSelected() ? url : "", forum.isSelected() ? forumText.getText() : "",
+                Einstellungen.docsOrdner(), Einstellungen.arbeitsordner(), alsXml.isSelected(),
+                direkt.isSelected() && !anf, sprache.getValue(), zugtabelle.isSelected() && !anf,
+                bahnsteige.isSelected() && !anf, format.getValue(),
+                mitForum ? url : "", mitForum ? forumText.getText() : "",
                 Einstellungen.handbuchAdresse(),
                 HandbuchSprache.aus(Einstellungen.get(Einstellungen.HANDBUCH_SPRACHE, "")));
         Task<Zusammenstellung.Ergebnis> task = new Task<>() {

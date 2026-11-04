@@ -12,7 +12,7 @@ Preise und Bedingungen können sich ändern; maßgeblich sind die Angaben auf cl
 
 ANFÄNGER ODER FORTGESCHRITTEN
 Fortgeschritten: die vollständige Analyse mit dem Prompt, wie auf itrainplus.de beschrieben.
-Anfänger: ein Prompt, der Schritt für Schritt mit Ihnen arbeitet. Er ist noch in Entwicklung.
+Anfänger: der Prompt für Anfänger. Er prüft Ihr Projekt in Runden, je Runde ein Thema mit höchstens drei Punkten, und erklärt jeden Punkt mit Klickschritten und Handbuchseite. Nach jeder Runde ändern Sie die Punkte in iTrain, führen die Diagnose aus, speichern und laden die .tcdz mit einem Bild der Diagnose im selben Chat wieder hoch. Das Programm brauchen Sie nur für den Start. Direktmodus, Zusätze, Forumsbeitrag und Release Notes entfallen. Der Knopf "Anleitung Anfänger" erklärt den Ablauf ausführlich, auch Kosten und Limits. Der Prompt wurde mit Claude an einer Testanlage mit gutem Ergebnis geprüft.
 
 SO GEHT'S
 1. Layout-Datei wählen. Die Liste zeigt die Dateien aus dem iTrain-Ordner „layouts“, die zuletzt geänderte steht oben. Mit „Andere …“ wählen Sie eine Datei an anderer Stelle.

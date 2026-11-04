@@ -4,3 +4,6 @@ build/
 *.iml
 out/
 _to_delete/
+
+# Nur lokal (Anwender 04.11.2026)
+CLAUDE.md
