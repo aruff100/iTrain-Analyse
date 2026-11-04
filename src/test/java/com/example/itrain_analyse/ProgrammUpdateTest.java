@@ -4,20 +4,22 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.net.URI;
 import org.junit.jupiter.api.Test;
 
 class ProgrammUpdateTest {
 
     @Test
-    void tagAusAntwort() {
-        String json = "{\"url\":\"x\",\"tag_name\": \"v1.1\",\"name\":\"iTrain-Analyse 1.1\"}";
-        assertEquals("1.1", ProgrammUpdate.neuesteAus(json).toString());
+    void versionAusAdresse() {
+        URI u = URI.create("https://github.com/aruff100/iTrain-Analyse/releases/tag/v1.1");
+        assertEquals("1.1", ProgrammUpdate.ausAdresse(u).toString());
     }
 
     @Test
     void ohneTag() {
-        assertNull(ProgrammUpdate.neuesteAus("{\"message\":\"Not Found\"}"));
-        assertNull(ProgrammUpdate.neuesteAus(null));
+        // Ohne Release leitet GitHub nicht auf /releases/tag/… weiter.
+        assertNull(ProgrammUpdate.ausAdresse(URI.create("https://github.com/aruff100/iTrain-Analyse/releases")));
+        assertNull(ProgrammUpdate.ausAdresse(null));
     }
 
     @Test
