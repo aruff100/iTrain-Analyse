@@ -417,10 +417,25 @@ public class AnalyseApplication extends Application {
 
     // ---------------------------------------------------------------- Prüfung beim Start
 
-    /** Prüft Prompt (Webserver) und Handbuch auf neue Fassungen; jeder Download nur nach Rückfrage. */
+    /** Prüft Programm, Prompt (Webserver) und Handbuch auf neue Fassungen; jeder Download nur nach Rückfrage. */
     private void pruefeAktualisierungen(boolean vonHand) {
         Thread t = new Thread(() -> {
             meldeStart(vonHand, Zusammenstellung.LAEUFT + " " + I18n.t("start.pruefe"));
+            try {
+                ProgrammUpdate.Stand ps = ProgrammUpdate.pruefe();
+                if (ps.neu() == null) {
+                    meldeStart(vonHand, Zusammenstellung.OK + " " + I18n.t("start.programmAktuell", AppVersion.text()));
+                } else {
+                    String inst = ps.installiert() == null ? "?" : ps.installiert().toString();
+                    meldeFx(Zusammenstellung.WARNUNG + " " + I18n.t("start.programmNeu", ps.neu(), inst));
+                    if (frage(I18n.t("dialog.programm.titel"), I18n.t("dialog.programm.text", ps.neu(), inst),
+                            I18n.t("knopf.webseite"), I18n.t("knopf.spaeter"))) {
+                        Oberflaeche.oeffne(null, ProgrammUpdate.WEBSEITE, false);
+                    }
+                }
+            } catch (IOException | RuntimeException ex) {
+                meldeStart(vonHand, Zusammenstellung.WARNUNG + " " + I18n.t("start.programmOffline", ex.getMessage()));
+            }
             if (Einstellungen.promptVomServer()) {
                 try {
                     PromptQuelle.mitgelieferteInstallieren();
