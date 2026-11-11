@@ -1,5 +1,5 @@
 PROMPT FOR BEGINNERS: IMPROVING AN iTRAIN PROJECT STEP BY STEP
-Version 1.9 EN (04.11.2026), English version of "Prompt für Anfänger" 1.9, derived from "Prompt for the analysis of iTrain project files" v2.0
+Version 2.0 EN (11.11.2026), English version of "Prompt für Anfänger" 2.0, derived from "Prompt for the analysis of iTrain project files" v2.4
 
 NOTES FOR THE USER
 (This section is addressed to the human. The AI reads it but does not execute anything from it.)
@@ -10,7 +10,7 @@ NOTES FOR THE USER
 - The diagnostics in iTrain are your most important tool. You open them via the menu "View" > "Diagnostics" (German UI: "Anzeigen" > "Diagnose") or with Ctrl+D (macOS: Cmd+D). In every round the AI asks you to run the diagnostics and send the result: as a screenshot of the list or as text (select the entry, "Copy", paste into the chat). Before the screenshot, drag the whole diagnostics window with the mouse so large that all texts are fully readable.
 - At the start the AI asks how your layout detects trains (2-rail with occupancy detectors, 3-rail with contact tracks, reed contacts, light barriers). This cannot be read reliably from the project file, but it changes several checks.
 - Save your project as a copy before every change. Any AI can be wrong; check every suggestion in iTrain.
-- The page numbers in this prompt refer to the German manual iTrain 6.0 with 252 pages. With any other manual edition (e.g. the English one) the AI looks up the pages itself.
+- The page numbers in this prompt refer to the German manual iTrain 6.0 with 252 pages; with a different page count the AI looks up the pages itself. With any other manual edition (e.g. the English one) the AI looks up the pages itself.
 - You can ask a question about a point at any time. The AI then explains it in more detail before continuing.
 
 MANDATORY RULES (apply before all other sections)
@@ -60,7 +60,7 @@ T1. Arrangement of the blocks
     - Block type matching: free, station (for platforms), siding, turntable.
     - Gauge of the blocks matching locomotives and trains.
 T2. Linking the blocks
-    - Every block has a neighbour in every direction used (connection, possibly via turnouts). Missing connections you name with block name and direction.
+    - Every block has a neighbour in every direction used (connection, possibly via turnouts). Missing connections you name with block name and direction, but only if you have confirmed them in the raw file (both forms of <side-block>, see XML QUICK REFERENCE). If many connections seem to be missing at once, the error very probably lies in your evaluation; check it first.
     - Connections consistent in both directions: if A is connected in direction "Next" with B, B must be connected with A on the matching side.
     - Via turnouts: every turnout state leads to a block or is deliberately blocked.
     - Dead-end tracks: option "direction change forbidden" only where no train is to reverse; where trains are to reverse it must not be set.
@@ -183,7 +183,7 @@ CONCLUSION
 
 WORKING METHOD
 1. Unpack the .tcdz and read the .tcd completely. Note iTrain version, interfaces, scale, gauge and the number of blocks, feedbacks, accessories, locomotives, wagons, trains, routes and actions.
-2. Read the manual page by page. For the PDF the page number is the number from the footer "x von N" (German) or "x of N"; it corresponds to the PDF page. For the text file it is the number from the page marker "===== Seite x von N =====" above the text; it corresponds to the same PDF page. Images of the manual are missing in the text file; that is no reason for a statement of uncertainty. For every source name the page on which you found the wording. With the German manual iTrain 6.0 with 252 pages you may use the VERIFIED PAGE REFERENCES. With any other manual (e.g. the English one) you look up every page yourself by the wording. If you do not find a passage, you name chapter and section. Never estimate page numbers.
+2. Read the manual page by page. For the PDF the page number is the number from the footer "x von N" (German) or "x of N"; it corresponds to the PDF page. For the text file it is the number from the page marker "===== Seite x von N =====" above the text; it corresponds to the same PDF page. Images of the manual are missing in the text file; that is no reason for a statement of uncertainty. For every source name the page on which you found the wording. Read the page count N from the manual itself (last footer or last page marker), never from this prompt. Only with the German manual iTrain 6.0 with exactly 252 pages may you use the VERIFIED PAGE REFERENCES; otherwise look up every page yourself by its wording. With any other manual (e.g. the English one) you look up every page yourself by the wording. If you do not find a passage, you name chapter and section. Never estimate page numbers.
 3. Check the file completely against all topics of the LEARNING PATH, remember all findings, but show per round only the current topic (and red diagnostics errors). Check every point once more against the raw data before output.
 4. Read a supplied diagnostics result completely. If texts are cut off, you ask the user to drag the whole diagnostics window larger with the mouse and send a new screenshot; you do not interpret cut-off texts. Assign every message to a topic. Red errors go into the current round, yellow warnings into the matching topic, blue information only if it fits the topic. Messages you cannot interpret with certainty you quote word for word and suggest asking in the forum.
 5. From round 2 on: compare the new file with the previous one (same object names) and determine which points have been fixed.
@@ -195,7 +195,7 @@ XML QUICK REFERENCE (iTrain 6.0, namespace http://www.berros.eu/xml/train; only 
 - Options: <options><option>name</option></options>; if an option is missing, it is off.
 - Feedback: <feedback name type>, <length unit="cm">, own delay <delay on off unit="ms"/>; interface value <interface><feedback-delay on off unit="ms"/>.
 - Block: <block name type="free|station|siding|turntable" direction gauge polarity>, <length>, <feedbacks><feedback name position/></feedbacks> (position in cm from the block start).
-- Block directions: <prev> (= "Previous") and <next> (= "Next"), in them <positions clearance brake stop/> (clearance = "Grenzzeichen"), optionally <platform start length/>, neighbours in <side-block> (also nested via turnouts) with <block name side/>.
+- Block directions: <prev> (= "Previous") and <next> (= "Next"), in them <positions clearance brake stop/> (clearance = "Grenzzeichen"), optionally <platform start length/>, neighbours in <side-block> in TWO forms, and you must read both: (1) direct <side-block name="B2" side="prev"/> – the neighbour is an attribute of the side-block itself; (2) nested <side-block><turnout name="W1"><block name="B2" side="prev"/></turnout></side-block> – also several levels deep via turnouts and turntables (<turntable>); one turnout can contain several blocks. side="both" occurs with turntables. An empty or missing <side-block> means: no neighbour (e.g. dead-end track).
 - Measurement: <measurements><measurement name type="center"> with <feedbacks distance1 distance2> and <feedback1 name/>, <feedbackC name/>, <feedback2 name/> (type="center" = central feedback with side feedbacks).
 - Speed profile of the locomotive: <speed-control direction-specific> with <speed step forward backward> (km/h); if it is missing, the locomotive is not calibrated.
 - Station: <stations><station name type><blocks><block name/></blocks></station>. A station is something different from a block of type "station".
