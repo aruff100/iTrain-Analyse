@@ -15,9 +15,10 @@ Fortgeschritten: die vollständige Analyse mit dem Prompt, wie auf itrainplus.de
 Anfänger: der Prompt für Anfänger. Er prüft Ihr Projekt in Runden, je Runde ein Thema mit höchstens drei Punkten, und erklärt jeden Punkt mit Klickschritten und Handbuchseite. Nach jeder Runde ändern Sie die Punkte in iTrain, führen die Diagnose aus, speichern und laden die .tcdz mit einem Bild der Diagnose im selben Chat wieder hoch. Das Programm brauchen Sie nur für den Start. Direktmodus, Zusätze, Forumsbeitrag und Release Notes entfallen. Der Knopf "Anleitung Anfänger" erklärt den Ablauf ausführlich, auch Kosten und Limits. Der Prompt wurde mit Claude an einer Testanlage mit gutem Ergebnis geprüft.
 
 SO GEHT'S
-1. Layout-Datei wählen. Die Liste zeigt die Dateien aus dem iTrain-Ordner „layouts“, die zuletzt geänderte steht oben. Mit „Andere …“ wählen Sie eine Datei an anderer Stelle.
+1. Layout-Datei wählen. Die Liste zeigt die Dateien aus dem iTrain-Ordner „layouts“, die zuletzt geänderte steht oben. Mit „Suchen“ wählen Sie eine Datei an anderer Stelle.
 2. Prompt-Sprache wählen: Deutsch/Nederlands oder English/Français/Español/Italiano.
-3. Wahlweise Direktmodus: Die KI stellt dann keine Rückfragen und liefert alles in einer Antwort. Darunter Sprache, Format und die beiden Zusätze wählen.
+3. Wahlweise Direktmodus: Die KI stellt dann keine Rückfragen und liefert alles in einer Antwort. Darunter Sprache, Format und die Zusätze wählen. Beim Einschalten ist kein Zusatz angehakt. Zusatz 3 „Signale prüfen“ ist unten im Abschnitt SIGNALE (ZUSATZ 3) beschrieben.
+   Im Feld „Zusätzlicher Auftrag an die KI“ können Sie, auch ohne Direktmodus, eine eigene Frage stellen, z. B. zu einem Relais oder zum Ablauf einer Aktion. Die KI beantwortet sie vorne im Analysedokument.
 4. Wahlweise „Forum-Beitrag einbeziehen“ und die Adresse des Beitrags eintragen. Das iTrain-Forum zeigt Beiträge nur angemeldeten Nutzern. Die KI kann den Beitrag deshalb nur lesen, wenn sie einen Browser benutzen darf, in dem Sie im Forum angemeldet sind: bei Claude die Erweiterung „Claude in Chrome“ (Chrome muss geöffnet und die Erweiterung verbunden sein) oder der Browser der Claude-App, in dem Sie sich einmal im Forum anmelden. Andere KI-Assistenten können das in der Regel nicht. Dann den Beitrag im Browser öffnen, den Text kopieren und in das Feld „Beitragstext“ einfügen; das Programm legt ihn als Datei Forum_Beitrag_<Nummer>.txt zu den anderen Dateien.
 5. „Zusammenstellen“ klicken. Im Feld „Fortschritt“ sehen Sie, was zusammengetragen wurde und was fehlt.
 6. Danach öffnet sich das Fenster mit dem Analyse-Paket. Öffnen Sie einen neuen, leeren Chat in Ihrem KI-Assistenten, ziehen Sie den blauen Kasten mit allen Dateien in das Nachrichtenfeld, kopieren Sie den Text mit „Kopieren“ dazu und senden Sie ab. Das Fenster lässt sich drucken.
@@ -27,17 +28,30 @@ WAS ZUSAMMENGESTELLT WIRD
 Prompt: kommt vom Webserver itrainplus.de. Eine Fassung ist im Programm enthalten. Bei jedem Start prüft das Programm, ob es auf dem Server eine neuere gibt, und fragt vor dem Herunterladen. Statt des Servers kann ein lokaler Ordner eingestellt werden.
 Handbuch: kommt von der Download-Seite von Berros. Beim Start prüft das Programm, ob es eine neuere Fassung gibt, und fragt vor dem Herunterladen. Das PDF wird einmal in Text umgewandelt; jede Seite beginnt mit „===== Seite x von N =====“, damit die KI Seitenangaben machen kann.
 Release Notes: kommen aus dem docs-Ordner Ihrer iTrain-Installation, gekürzt auf die Versionen ab 6.0. Fehlen sie, fragt das Programm, ob es trotzdem weitergehen soll.
+Signal-Datei (nur mit Zusatz 3): Zusatz_Signale_DE_NL bzw. Addon_Signals_EN_FR_ES_IT, kommt wie der Prompt vom Webserver itrainplus.de oder aus dem Programm.
 Layout-Datei: die .tcdz wird entpackt; die KI bekommt die .tcd darin.
 Alles liegt im Arbeitsordner. Prompt, Handbuch-PDF und Handbuch-Text werden bei der nächsten Analyse wiederverwendet, solange sie aktuell sind.
 
 ZUSÄTZE
-Zusatz 1 ist die Zugtabelle, Zusatz 2 die Prüfung von Bahnsteigen, Blocklängen und Haltepunkten. Ab Prompt 2.3 lassen sich beide getrennt wählen. Im Direktmodus schreibt das Programm z. B. „Zusätze Zugtabelle und Bahnsteige“ oder „Zusätze Bahnsteige“ in den Text für den Chat; im Dialogmodus fragt die KI mit vier Antworten: beide, nur Zugtabelle, nur Bahnsteige, keine.
+Zusatz 1 ist die Zugtabelle, Zusatz 2 die Prüfung von Bahnsteigen, Blocklängen und Haltepunkten, Zusatz 3 die Prüfung der Signale (ab Prompt 2.5, nur im Direktmodus). Die Zusätze lassen sich einzeln wählen. Im Direktmodus schreibt das Programm z. B. „Zusätze Zugtabelle, Bahnsteige und Signale“ oder „Zusätze Signale“ in den Text für den Chat; im Dialogmodus fragt die KI mit vier Antworten zu Zusatz 1 und 2: beide, nur Zugtabelle, nur Bahnsteige, keine.
+
+SIGNALE (ZUSATZ 3)
+Mit dem Haken „Zusatz 3: Signale prüfen“ im Direktmodus prüft die KI zusätzlich die Signale Ihrer Anlage. Grundlage sind die „Regeln für Signale“ von Berros (https://berros.eu/download/tutorial/). Beim Einschalten des Direktmodus ist kein Zusatz angehakt; Sie wählen selbst.
+Das Programm legt dafür die Datei Zusatz_Signale_DE_NL_v….txt (englische Sprachgruppe: Addon_Signals_EN_FR_ES_IT_v….txt) als eigene Datei zu Prompt, Handbuch und Layout-Datei und nennt „Signale“ in der Direktmodus-Zeile. Die Datei liegt im Ordner des Laufs im Arbeitsordner.
+Geprüft wird:
+- ob jedes Signal im Blockeditor im richtigen Feld steht (Hauptsignal, Rangiersignal, Vorsignal im Abschnitt „Signal“ oder „Block“),
+- ob Mehrfach-Signale (z. B. Ausfahrsignal mit Sh1, Ks- und Hl-Signale) nur im Feld „Hauptsignal“ stehen,
+- ob ein Signal in dem Block zugewiesen ist, zu dem es im Gleisbild gruppiert ist,
+- ob gezeichnete Signale keinem Block zugewiesen sind,
+- ob die Reihenfolge im Gleisbild zu den Regeln passt (Vorsignal mit oder ohne Lücke vor dem Hauptsignal, Rangiersignal vor dem Hauptsignal).
+Das Ergebnis steht im Analysedokument als „Zusatz 3: Signalprüfung“ mit eigenen Befunden S1, S2 usw.; ohne Befund steht dort „Signale überprüft (<Anzahl> Signale), keine Befunde“. Die Reihenfolge im Gleisbild liest die KI nur aus der Folge der Gleisbildelemente; solche Befunde sind mit „vermutlich“ gekennzeichnet. Nicht prüfbar ist, auf welcher Seite des Gleises ein Signal steht.
+Die Zusatzdatei kommt wie der Prompt vom Webserver itrainplus.de; eine Fassung ist im Programm enthalten. Sie ist eine Kurzfassung der Regeln von Berros. Ändert Berros die Regeln oder erscheint dort eine neuere Fassung, meldet das Programm das beim Start und beim Zusammenstellen im Feld „Fortschritt“; die Zusatzdatei wird dann überarbeitet und als neue Version bereitgestellt.
 
 ROUTEN
 Ab Prompt 2.3 prüft die KI in jeder Analyse alle Zugrouten auf Durchführbarkeit: ob die Blöcke existieren, ob sie im Gleisplan in der angegebenen Richtung aufeinander folgen, ob die Option „Strikt“ erfüllbar ist, ob wiederholte Routen dort enden, wo sie beginnen, und ob in Listen mit „Optimale Länge“ ein passender Block steht. Gibt es nichts zu beanstanden, steht unter „Ohne Befund“: Routen überprüft, keine Befunde.
 
 ANSICHTEN
-Nach dem Zusammenstellen zeigt das Menü „Ansichten“ den Prompt-Text, den Release-Text und den Handbuch-Text in einem eigenen Fenster an. Vorher sind die Einträge ausgegraut. Mit „Bearbeiten“ können Sie den Text ergänzen, z. B. eigene Prüfregeln an den Prompt anhängen. Kopieren, Einfügen und Ausschneiden gehen mit Strg+C, Strg+V und Strg+X (Mac: Cmd) oder über die Knöpfe.
+Nach dem Zusammenstellen zeigt das Menü „Ansichten“ den Prompt-Text, den Signale-Text (mit Zusatz 3), den Release-Text und den Handbuch-Text in einem eigenen Fenster an. Vorher sind die Einträge ausgegraut. Mit „Aktualisieren“ oben im Menü prüft das Programm, ob Prompt, Signale und Handbuch die aktuelle Fassung haben, lädt neue Fassungen nach Rückfrage und stellt alle Dokumente im Arbeitsordner unter „Dokumente“ bereit; danach lassen sie sich auch ohne Zusammenstellen ansehen und bearbeiten. Mit „Bearbeiten“ können Sie den Text ergänzen, z. B. eigene Prüfregeln an den Prompt anhängen. Kopieren, Einfügen und Ausschneiden gehen mit Strg+C, Strg+V und Strg+X (Mac: Cmd) oder über die Knöpfe.
 „Speichern“ legt die Fassung als „…_bearbeitet.txt“ im Unterordner „Bearbeitet“ des Arbeitsordners ab und ersetzt damit das Original in Zwischenablage, Ergebnisfenster und Layout-Ordner. Das Original bleibt erhalten; „Original wiederherstellen“ schaltet zurück. Der Text für den Chat nennt der KI die bearbeiteten Dateien, und das Programm weist Sie beim Kopieren darauf hin.
 Bei der nächsten Zusammenstellung fragt das Programm, ob die bearbeitete Fassung oder das Original verwendet werden soll. Hat sich das Original inzwischen geändert (z. B. ein neuer Prompt), steht das in der Frage.
 

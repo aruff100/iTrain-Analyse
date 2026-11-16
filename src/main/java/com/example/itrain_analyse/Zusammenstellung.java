@@ -32,8 +32,8 @@ public final class Zusammenstellung {
 
     /** Eingaben aus Fenster und Voreinstellungen. */
     public record Auftrag(Path projektdatei, Sprachgruppe gruppe, Path docsOrdner, Path arbeitsordner,
-            boolean tcdAlsXml, boolean direkt, String sprache, boolean zugtabelle, boolean bahnsteige, String format,
-            String forumUrl, String forumText,
+            boolean tcdAlsXml, boolean direkt, String sprache, boolean zugtabelle, boolean bahnsteige,
+            boolean signale, String format, String forumUrl, String forumText, String zusatzauftrag,
             String handbuchAdresse, HandbuchSprache handbuchSprache) {
     }
 
@@ -96,15 +96,12 @@ public final class Zusammenstellung {
         List<Text> texte = new ArrayList<>();
 
         // 2. Prompt
-        meldung.accept(LAEUFT + " " + I18n.t("status.promptSuche"));
-        Path prompt = PromptQuelle.aktuell(a.gruppe());
-        Path promptZiel = ordner.resolve(prompt.getFileName());
-        Files.copy(prompt, promptZiel, StandardCopyOption.REPLACE_EXISTING);
-        dateien.add(promptZiel);
-        melde.accept(new Status(OK, I18n.t("status.prompt", prompt.getFileName())));
-        waehle(a, rf, melde, dateien, texte, new Text(Bearbeitet.Art.PROMPT,
-                Bearbeitet.schluessel(Bearbeitet.Art.PROMPT, a.gruppe().name()), I18n.t("ansicht.prompt"),
-                prompt, promptZiel, false));
+        prompt(a, rf, melde, meldung, ordner, dateien, texte);
+
+        // 2a. Zusatz 3 "Signale prüfen": eigene Datei im Ordner des Laufs neben dem Prompt (Anwender 16.11.2026).
+        if (a.signale() && !a.gruppe().anfaenger()) {
+            signale(a, rf, melde, ordner, dateien, texte);
+        }
 
         // 3. Layout entpacken
         Projektdatei.Ergebnis tcd = Projektdatei.entpacke(a.projektdatei(), ordner, a.tcdAlsXml());
@@ -113,72 +110,17 @@ public final class Zusammenstellung {
                 tcd.itrainVersion() == null ? I18n.t("status.nichtGelesen") : tcd.itrainVersion())));
 
         // 4. Handbuch
-        HandbuchSprache hs = a.handbuchSprache().aufloesen(a.gruppe(), a.direkt(), a.sprache());
-        Path pdf = HandbuchDownload.lokal(a.handbuchAdresse(), hs);
-        if (!Files.isRegularFile(pdf)) {
-            HandbuchDownload.Stand st = HandbuchDownload.pruefe(a.handbuchAdresse(), hs);
-            if (st.zustand() == HandbuchDownload.Zustand.FEHLT
-                    && rf.frage(I18n.t("dialog.handbuch.titel"),
-                            I18n.t("dialog.handbuch.fehlt", pdf.getFileName(), mb(st.groesse())),
-                            I18n.t("knopf.herunterladen"), I18n.t("knopf.abbrechen"))) {
-                meldung.accept(LAEUFT + " " + I18n.t("status.handbuchLaedt", pdf.getFileName()));
-                pdf = HandbuchDownload.lade(a.handbuchAdresse(), hs);
-            } else {
-                melde.accept(new Status(FEHLT, I18n.t("status.handbuchFehlt", pdf.getFileName())));
-                throw new Abbruch(I18n.t("status.handbuchFehlt", pdf.getFileName()));
-            }
-        }
-        Path cacheHandbuch = Einstellungen.cache().resolve("handbuch-text");
-        boolean neuUmwandeln = !Handbuch.istZwischengespeichert(pdf, cacheHandbuch);
-        if (neuUmwandeln) {
-            meldung.accept(LAEUFT + " " + I18n.t("status.handbuchWandelt"));
-        }
-        Version adressVersion = HandbuchDownload.versionAus(a.handbuchAdresse());
-        Handbuch.Ergebnis hb = Handbuch.alsText(pdf, cacheHandbuch, ordner, hs.kuerzel(), adressVersion, m -> { });
-        dateien.add(hb.text());
-        Path hbOriginal = cacheHandbuch.resolve(hb.text().getFileName());
-        Version hbVersion = hb.version() == null ? HANDBUCH_VORGABE : hb.version();
-        melde.accept(new Status(OK, I18n.t("status.handbuch", hb.text().getFileName(), hb.seiten(),
-                neuUmwandeln ? I18n.t("status.neuErstellt") : I18n.t("status.wiederverwendet"))));
-        if (hs != HandbuchSprache.DE) {
-            melde.accept(new Status(WARNUNG, I18n.t("status.handbuchSeiten")));
-        }
-        waehle(a, rf, melde, dateien, texte, new Text(Bearbeitet.Art.HANDBUCH,
-                Bearbeitet.schluessel(Bearbeitet.Art.HANDBUCH, hs.kuerzel()), I18n.t("ansicht.handbuch"),
-                Files.isRegularFile(hbOriginal) ? hbOriginal : hb.text(), hb.text(), false));
+        Version hbVersion = handbuch(a, rf, melde, meldung, ordner, dateien, texte, true);
 
         // 5. Release Notes (nur lokal). Der Prompt für Anfänger braucht sie nicht (Anwender 04.11.2026).
-        Version ab = Version.aus(String.valueOf(hbVersion.teile().get(0)));
-        Path docs = a.docsOrdner();
         if (a.gruppe().anfaenger()) {
             melde.accept(new Status(OK, I18n.t("status.releaseAnfaenger")));
-        } else if (docs != null && Files.isRegularFile(docs.resolve(ReleaseNotes.DATEINAME))) {
-            ReleaseNotes.Ergebnis rn = ReleaseNotes.auszug(docs, ab, ordner);
-            if (rn.datei() == null) {
-                melde.accept(new Status(WARNUNG, I18n.t("status.releaseLeer", ab)));
-            } else {
-                dateien.add(rn.datei());
-                melde.accept(new Status(OK, I18n.t("status.release", rn.datei().getFileName(),
-                        rn.abschnitte().size(), rn.installiert())));
-                // Original ist der frisch erzeugte Auszug; er wird neben der bearbeiteten Fassung aufbewahrt.
-                Path rnOriginal = Einstellungen.cache().resolve("release").resolve(rn.datei().getFileName());
-                Files.createDirectories(rnOriginal.getParent());
-                Files.copy(rn.datei(), rnOriginal, StandardCopyOption.REPLACE_EXISTING);
-                waehle(a, rf, melde, dateien, texte, new Text(Bearbeitet.Art.RELEASE,
-                        Bearbeitet.schluessel(Bearbeitet.Art.RELEASE, null), I18n.t("ansicht.release"),
-                        rnOriginal, rn.datei(), false));
-            }
+        } else {
+            ReleaseNotes.Ergebnis rn = release(a, rf, melde, ordner, dateien, texte, hbVersion, true);
             Version datei = Version.aus(tcd.itrainVersion());
-            if (datei != null && rn.installiert() != null && datei.compareTo(rn.installiert()) > 0) {
+            if (rn != null && datei != null && rn.installiert() != null && datei.compareTo(rn.installiert()) > 0) {
                 melde.accept(new Status(WARNUNG, I18n.t("status.releaseAelter", datei, rn.installiert())));
             }
-        } else {
-            if (!rf.frage(I18n.t("dialog.release.titel"), I18n.t("dialog.release.text"),
-                    I18n.t("knopf.weiter"), I18n.t("knopf.abbrechen"))) {
-                melde.accept(new Status(FEHLT, I18n.t("status.releaseFehlt")));
-                throw new Abbruch(I18n.t("status.abgebrochen"));
-            }
-            melde.accept(new Status(WARNUNG, I18n.t("status.releaseFehlt")));
         }
         Version datei = Version.aus(tcd.itrainVersion());
         if (datei != null && datei.teile().get(0) < hbVersion.teile().get(0)) {
@@ -206,6 +148,161 @@ public final class Zusammenstellung {
         return new Ergebnis(dateien, nachricht, ordner, status, texte, a, forumDatei);
     }
 
+    /** Ordner der Dokumente für das Menü "Ansichten" nach "Aktualisieren" (im Arbeitsordner). */
+    public static final String DOKUMENTE_ORDNER = "Dokumente";
+
+    /**
+     * Nur die Dokumente für das Menü "Ansichten" (Anwender 16.11.2026): Prompt, Signale, Handbuch und Release Notes
+     * in {@code <Arbeitsordner>/Dokumente}, ohne Layout-Datei, Zwischenablage und Nachricht. Gibt es eine bearbeitete
+     * Fassung, wird sie ohne Rückfrage gezeigt; ein fehlendes Handbuch oder fehlende Release Notes brechen nicht ab.
+     */
+    public static Ergebnis dokumente(Auftrag a, Rueckfrage rf, Consumer<String> meldung) throws IOException {
+        List<Status> status = new ArrayList<>();
+        Consumer<Status> melde = s -> {
+            status.add(s);
+            meldung.accept(s.symbol() + " " + s.text());
+        };
+        Path ordner = a.arbeitsordner().resolve(DOKUMENTE_ORDNER);
+        Files.createDirectories(ordner);
+        leeren(ordner);
+        List<Path> dateien = new ArrayList<>();
+        List<Text> texte = new ArrayList<>();
+        Rueckfrage bearbeitete = (titel, text, ja, nein) -> true;
+        prompt(a, bearbeitete, melde, meldung, ordner, dateien, texte);
+        if (!a.gruppe().anfaenger()) {
+            signale(a, bearbeitete, melde, ordner, dateien, texte);
+        }
+        Rueckfrage handbuchFrage = (titel, text, ja, nein) -> rf.frage(titel, text, ja, nein);
+        Version hbVersion = handbuch(a, handbuchFrage, melde, meldung, ordner, dateien, texte, false);
+        if (!a.gruppe().anfaenger()) {
+            release(a, bearbeitete, melde, ordner, dateien, texte, hbVersion == null ? HANDBUCH_VORGABE : hbVersion,
+                    false);
+        }
+        melde.accept(new Status(OK, I18n.t("status.dokumenteFertig", texte.size(), ordner)));
+        return new Ergebnis(dateien, "", ordner, status, texte, a, null);
+    }
+
+    /** Ergebnis von {@link #dokumente} (nicht von einer Zusammenstellung). */
+    public static boolean nurDokumente(Ergebnis e) {
+        return e.ordner().getFileName().toString().equals(DOKUMENTE_ORDNER) && e.nachricht().isEmpty();
+    }
+
+    private static void prompt(Auftrag a, Rueckfrage rf, Consumer<Status> melde, Consumer<String> meldung, Path ordner,
+            List<Path> dateien, List<Text> texte) throws IOException {
+        meldung.accept(LAEUFT + " " + I18n.t("status.promptSuche"));
+        Path prompt = PromptQuelle.aktuell(a.gruppe());
+        Path promptZiel = ordner.resolve(prompt.getFileName());
+        Files.copy(prompt, promptZiel, StandardCopyOption.REPLACE_EXISTING);
+        dateien.add(promptZiel);
+        melde.accept(new Status(OK, I18n.t("status.prompt", prompt.getFileName())));
+        waehle(a, rf, melde, dateien, texte, new Text(Bearbeitet.Art.PROMPT,
+                Bearbeitet.schluessel(Bearbeitet.Art.PROMPT, a.gruppe().name()), I18n.t("ansicht.prompt"),
+                prompt, promptZiel, false));
+    }
+
+    /** Zusatzdatei Signale; hat Berros die Signalregeln seitdem geändert, steht das als Warnung im Fortschritt. */
+    private static void signale(Auftrag a, Rueckfrage rf, Consumer<Status> melde, Path ordner, List<Path> dateien,
+            List<Text> texte) throws IOException {
+        Zusatzdatei z = Zusatzdatei.signale(a.gruppe());
+        Path zusatz = PromptQuelle.aktuell(z);
+        Path zusatzZiel = ordner.resolve(zusatz.getFileName());
+        Files.copy(zusatz, zusatzZiel, StandardCopyOption.REPLACE_EXISTING);
+        dateien.add(zusatzZiel);
+        melde.accept(new Status(OK, I18n.t("status.signale", zusatz.getFileName())));
+        try {
+            String m = SignalQuelle.meldung(SignalQuelle.pruefe(zusatz));
+            if (m != null) {
+                melde.accept(new Status(WARNUNG, m));
+            }
+        } catch (IOException ex) {
+            // Berros nicht erreichbar: ohne Vergleich weiter.
+        }
+        waehle(a, rf, melde, dateien, texte, new Text(Bearbeitet.Art.SIGNALE,
+                Bearbeitet.schluessel(Bearbeitet.Art.SIGNALE, z.name().replace("SIGNALE_", "")), I18n.t("ansicht.signale"), zusatz,
+                zusatzZiel, false));
+    }
+
+    /**
+     * Handbuch als Text; liefert die Version des Handbuchs. Fehlt das Handbuch und lädt der Anwender es nicht, bricht
+     * die Zusammenstellung ab ({@code pflicht}); sonst Meldung und Ergebnis null.
+     */
+    private static Version handbuch(Auftrag a, Rueckfrage rf, Consumer<Status> melde, Consumer<String> meldung,
+            Path ordner, List<Path> dateien, List<Text> texte, boolean pflicht) throws IOException {
+        HandbuchSprache hs = a.handbuchSprache().aufloesen(a.gruppe(), a.direkt(), a.sprache());
+        Path pdf = HandbuchDownload.lokal(a.handbuchAdresse(), hs);
+        if (!Files.isRegularFile(pdf)) {
+
+            HandbuchDownload.Stand st = HandbuchDownload.pruefe(a.handbuchAdresse(), hs);
+            if (st.zustand() == HandbuchDownload.Zustand.FEHLT
+                    && rf.frage(I18n.t("dialog.handbuch.titel"),
+                            I18n.t("dialog.handbuch.fehlt", pdf.getFileName(), mb(st.groesse())),
+                            I18n.t("knopf.herunterladen"), I18n.t("knopf.abbrechen"))) {
+                meldung.accept(LAEUFT + " " + I18n.t("status.handbuchLaedt", pdf.getFileName()));
+                pdf = HandbuchDownload.lade(a.handbuchAdresse(), hs);
+            } else {
+                melde.accept(new Status(FEHLT, I18n.t("status.handbuchFehlt", pdf.getFileName())));
+                if (pflicht) {
+                    throw new Abbruch(I18n.t("status.handbuchFehlt", pdf.getFileName()));
+                }
+                return null;
+            }
+        }
+        Path cacheHandbuch = Einstellungen.cache().resolve("handbuch-text");
+        boolean neuUmwandeln = !Handbuch.istZwischengespeichert(pdf, cacheHandbuch);
+        if (neuUmwandeln) {
+            meldung.accept(LAEUFT + " " + I18n.t("status.handbuchWandelt"));
+        }
+        Version adressVersion = HandbuchDownload.versionAus(a.handbuchAdresse());
+        Handbuch.Ergebnis hb = Handbuch.alsText(pdf, cacheHandbuch, ordner, hs.kuerzel(), adressVersion, m -> { });
+        dateien.add(hb.text());
+        Path hbOriginal = cacheHandbuch.resolve(hb.text().getFileName());
+        Version hbVersion = hb.version() == null ? HANDBUCH_VORGABE : hb.version();
+        melde.accept(new Status(OK, I18n.t("status.handbuch", hb.text().getFileName(), hb.seiten(),
+                neuUmwandeln ? I18n.t("status.neuErstellt") : I18n.t("status.wiederverwendet"))));
+        if (hs != HandbuchSprache.DE) {
+            melde.accept(new Status(WARNUNG, I18n.t("status.handbuchSeiten")));
+        }
+        waehle(a, rf, melde, dateien, texte, new Text(Bearbeitet.Art.HANDBUCH,
+                Bearbeitet.schluessel(Bearbeitet.Art.HANDBUCH, hs.kuerzel()), I18n.t("ansicht.handbuch"),
+                Files.isRegularFile(hbOriginal) ? hbOriginal : hb.text(), hb.text(), false));
+        return hbVersion;
+    }
+
+    /**
+     * Auszug aus den Release Notes ab der Hauptversion des Handbuchs; null, wenn es keinen gibt. Fehlt die Datei,
+     * fragt die Zusammenstellung, ob sie ohne weitermachen soll ({@code pflicht}); sonst nur eine Warnung.
+     */
+    private static ReleaseNotes.Ergebnis release(Auftrag a, Rueckfrage rf, Consumer<Status> melde, Path ordner,
+            List<Path> dateien, List<Text> texte, Version hbVersion, boolean pflicht) throws IOException {
+        Version ab = Version.aus(String.valueOf(hbVersion.teile().get(0)));
+        Path docs = a.docsOrdner();
+        if (docs != null && Files.isRegularFile(docs.resolve(ReleaseNotes.DATEINAME))) {
+            ReleaseNotes.Ergebnis rn = ReleaseNotes.auszug(docs, ab, ordner);
+            if (rn.datei() == null) {
+                melde.accept(new Status(WARNUNG, I18n.t("status.releaseLeer", ab)));
+                return null;
+            }
+            dateien.add(rn.datei());
+            melde.accept(new Status(OK, I18n.t("status.release", rn.datei().getFileName(),
+                    rn.abschnitte().size(), rn.installiert())));
+            // Original ist der frisch erzeugte Auszug; er wird neben der bearbeiteten Fassung aufbewahrt.
+            Path rnOriginal = Einstellungen.cache().resolve("release").resolve(rn.datei().getFileName());
+            Files.createDirectories(rnOriginal.getParent());
+            Files.copy(rn.datei(), rnOriginal, StandardCopyOption.REPLACE_EXISTING);
+            waehle(a, rf, melde, dateien, texte, new Text(Bearbeitet.Art.RELEASE,
+                    Bearbeitet.schluessel(Bearbeitet.Art.RELEASE, null), I18n.t("ansicht.release"),
+                    rnOriginal, rn.datei(), false));
+            return rn;
+        }
+        if (pflicht && !rf.frage(I18n.t("dialog.release.titel"), I18n.t("dialog.release.text"),
+                I18n.t("knopf.weiter"), I18n.t("knopf.abbrechen"))) {
+            melde.accept(new Status(FEHLT, I18n.t("status.releaseFehlt")));
+            throw new Abbruch(I18n.t("status.abgebrochen"));
+        }
+        melde.accept(new Status(WARNUNG, I18n.t("status.releaseFehlt")));
+        return null;
+    }
+
     /** Forum_Beitrag_<Beitragsnummer>.txt, ohne Nummer in der Adresse Forum_Beitrag.txt. */
     static String forumDateiname(String url) {
         java.util.regex.Matcher m = java.util.regex.Pattern.compile("[?&#]p=?(\\d+)").matcher(url == null ? "" : url);
@@ -215,8 +312,8 @@ public final class Zusammenstellung {
     private static String nachricht(Auftrag a, List<Text> texte, String forumDatei) {
         List<String> namen = texte.stream().filter(Text::bearbeitet).map(x -> x.datei().getFileName().toString())
                 .toList();
-        return a.gruppe().nachricht(a.direkt(), a.sprache(), a.zugtabelle(), a.bahnsteige(), a.format(),
-                a.forumUrl(), forumDatei, namen);
+        return a.gruppe().nachricht(a.direkt(), a.sprache(), a.zugtabelle(), a.bahnsteige(), a.signale(),
+                a.format(), a.forumUrl(), forumDatei, namen, a.zusatzauftrag());
     }
 
     /**
@@ -295,6 +392,9 @@ public final class Zusammenstellung {
                     neu.datei().getFileName())));
         }
         texte.set(texte.indexOf(t), neu);
+        if (nurDokumente(e)) {
+            return new Ergebnis(dateien, "", e.ordner(), status, texte, e.auftrag(), e.forumDatei());
+        }
         String nachricht = nachricht(e.auftrag(), texte, e.forumDatei());
         Files.writeString(e.ordner().resolve(NACHRICHT_DATEI), nachricht + "\n", StandardCharsets.UTF_8);
         return new Ergebnis(dateien, nachricht, e.ordner(), status, texte, e.auftrag(), e.forumDatei());

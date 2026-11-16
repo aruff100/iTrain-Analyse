@@ -15,9 +15,10 @@ Advanced: the complete analysis with the prompt, as described on itrainplus.de.
 Beginner: the beginner prompt. It checks your project in rounds, one topic with at most three points per round, and explains every point with click steps and the manual page. After each round you change the points in iTrain, run the diagnostics, save and upload the .tcdz with a picture of the diagnostics again in the same chat. You only need the program for the start. Direct mode, extras, forum post and release notes are not used. The button "Beginner guide" explains the procedure in detail, including costs and limits. The prompt was tested with Claude on a test layout with a good result.
 
 HOW IT WORKS
-1. Choose the layout file. The list shows the files from the iTrain folder "layouts", the most recently changed at the top. "Other …" lets you choose a file elsewhere.
+1. Choose the layout file. The list shows the files from the iTrain folder "layouts", the most recently changed at the top. "Browse" lets you choose a file elsewhere.
 2. Choose the prompt language: Deutsch/Nederlands or English/Français/Español/Italiano.
-3. Optionally direct mode: the AI then asks no questions and delivers everything in one reply. Below it choose language, format and the two extras.
+3. Optionally direct mode: the AI then asks no questions and delivers everything in one reply. Below it choose language, format and the extras. When switched on, no extra is ticked. Extra 3 "check signals" is described below in the section SIGNALS (EXTRA 3).
+   In the field "Additional task for the AI" you can, also without direct mode, ask a question of your own, e.g. about a relay or the sequence of an action. The AI answers it at the front of the analysis document.
 4. Optionally "Include forum post" and enter the address of the post. The iTrain forum shows posts to logged-in users only. The AI can therefore only read the post if it may use a browser in which you are logged in to the forum: with Claude, the "Claude in Chrome" extension (Chrome must be open and the extension connected) or the browser of the Claude app, in which you log in to the forum once. Other AI assistants usually cannot do this. In that case open the post in your browser, copy the text and paste it into the field "Post text"; the program adds it to the other files as Forum_Beitrag_<number>.txt.
 5. Click "Assemble". The "Progress" field shows what was collected and what is missing.
 6. Then the window with the analysis package opens. Open a new, empty chat in your AI assistant, drag the blue box with all files into the message field, add the text with "Copy" and send. The window can be printed.
@@ -27,17 +28,30 @@ WHAT IS COLLECTED
 Prompt: comes from the web server itrainplus.de. A version is included in the program. At every start the program checks whether there is a newer one on the server and asks before downloading. A local folder can be set instead of the server.
 Manual: comes from the Berros download page. At start the program checks whether there is a newer version and asks before downloading. The PDF is converted to text once; each page begins with "===== Seite x von N =====" so that the AI can give page references.
 Release notes: come from the docs folder of your iTrain installation, shortened to the versions from 6.0 on. If they are missing, the program asks whether to continue anyway.
+Signal file (only with extra 3): Addon_Signals_EN_FR_ES_IT or Zusatz_Signale_DE_NL, comes like the prompt from the web server itrainplus.de or from the program.
 Layout file: the .tcdz is unpacked; the AI gets the .tcd inside.
 Everything is stored in the working folder. Prompt, manual PDF and manual text are reused for the next analysis as long as they are current.
 
 EXTRAS
-Extra 1 is the train table, extra 2 the check of platforms, block lengths and stop points. From prompt 2.3 on they can be chosen separately. In direct mode the program writes e.g. "Extras Train table and Platforms" or "Extras Platforms" into the text for the chat; in dialogue mode the AI asks with four answers: both, train table only, platforms only, none.
+Extra 1 is the train table, extra 2 the check of platforms, block lengths and stop points, extra 3 the check of the signals (from prompt 2.5 on, direct mode only). The extras can be chosen individually. In direct mode the program writes e.g. "Extras Train table, Platforms and Signals" or "Extras Signals" into the text for the chat; in dialogue mode the AI asks about extras 1 and 2 with four answers: both, train table only, platforms only, none.
+
+SIGNALS (EXTRA 3)
+With the check box "Extra 3: check signals" in direct mode the AI additionally checks the signals of your layout. The basis is the "Rules for iTrain Signals" by Berros (https://berros.eu/download/tutorial/). When direct mode is switched on, no extra is ticked; you choose yourself.
+For this the program adds the file Addon_Signals_EN_FR_ES_IT_v….txt (German/Dutch language group: Zusatz_Signale_DE_NL_v….txt) as a separate file to prompt, manual and layout file and names "Signals" in the direct mode line. The file lies in the folder of the run in the working folder.
+The check covers:
+- whether every signal is in the correct field of the block editor (Home Signal, Shunt Signal, Warning Signal in the section "Signal" or "Block"),
+- whether multi-role signals (e.g. exit signal with Sh1, Ks and Hl signals) are only in the field "Home Signal",
+- whether a signal is assigned in the block to which it is grouped in the switchboard,
+- whether drawn signals are not assigned to any block,
+- whether the order in the switchboard matches the rules (Warning Signal with or without a gap before the Home Signal, Shunt Signal before the Home Signal).
+The result appears in the analysis document as "Extra 3: Signal check" with its own findings S1, S2 etc.; without findings it says "Signals checked (<count> signals), no findings". The AI reads the order in the switchboard only from the sequence of switchboard items; such findings are marked "probably". On which side of the track a signal stands cannot be checked.
+Like the prompt, the add-on file comes from the web server itrainplus.de; a version is included in the program. It is a summary of the Berros rules. If Berros changes the rules or publishes a newer version, the program reports this at start and when assembling in the "Progress" field; the add-on file is then revised and provided as a new version.
 
 ROUTES
 From prompt 2.3 on the AI checks all train routes for feasibility in every analysis: whether the blocks exist, whether they follow each other in the track plan in the given direction, whether the option "Strikt" (strict) can be met, whether repeated routes end where they start, and whether lists with "Optimal length" contain a suitable block. If there is nothing to report, "No findings" says: Routes checked, no findings.
 
 VIEW
-After assembling, the "View" menu shows the prompt text, the release notes text and the manual text in a separate window. Before that the entries are greyed out. With "Edit" you can extend the text, e.g. append your own check rules to the prompt. Copy, paste and cut work with Ctrl+C, Ctrl+V and Ctrl+X (Mac: Cmd) or with the buttons.
+After assembling, the "View" menu shows the prompt text, the signals text (with Extra 3), the release notes text and the manual text in a separate window. Before that the entries are greyed out. With "Refresh" at the top of the menu the program checks whether prompt, signals and manual are the current version, downloads new versions after asking and provides all documents in the working folder under "Dokumente"; after that they can be viewed and edited without assembling. With "Edit" you can extend the text, e.g. append your own check rules to the prompt. Copy, paste and cut work with Ctrl+C, Ctrl+V and Ctrl+X (Mac: Cmd) or with the buttons.
 "Save" stores the version as "…_bearbeitet.txt" in the subfolder "Bearbeitet" of the working folder and thereby replaces the original on the clipboard, in the result window and in the layout folder. The original is kept; "Restore original" switches back. The text for the chat names the edited files for the AI, and the program points this out to you when copying.
 At the next assembly the program asks whether to use the edited version or the original. If the original has changed in the meantime (e.g. a new prompt), the question says so.
 

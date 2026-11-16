@@ -15,9 +15,10 @@ Avanzado: el análisis completo con el prompt, tal como se describe en itrainplu
 Principiante: el prompt para principiantes. Revisa su proyecto por rondas, un tema con un máximo de tres puntos por ronda, y explica cada punto con los clics y la página del manual. Después de cada ronda cambia los puntos en iTrain, ejecuta el diagnóstico, guarda y vuelve a subir el .tcdz con una imagen del diagnóstico en el mismo chat. El programa solo lo necesita para empezar. El modo directo, los complementos, la entrada del foro y las notas de la versión no se usan. El botón «Guía para principiantes» explica el procedimiento en detalle, también los costes y los límites. El prompt se probó con Claude en una maqueta de prueba con buen resultado.
 
 CÓMO FUNCIONA
-1. Elija el archivo de maqueta. La lista muestra los archivos de la carpeta de iTrain «layouts», el modificado más recientemente arriba. Con «Otro …» puede elegir un archivo en otro lugar.
+1. Elija el archivo de maqueta. La lista muestra los archivos de la carpeta de iTrain «layouts», el modificado más recientemente arriba. Con «Examinar» puede elegir un archivo en otro lugar.
 2. Elija el idioma del prompt: Deutsch/Nederlands o English/Français/Español/Italiano.
-3. Opcionalmente, modo directo: la IA no hace preguntas y entrega todo en una sola respuesta. Debajo elija idioma, formato y los dos complementos.
+3. Opcionalmente, modo directo: la IA no hace preguntas y entrega todo en una sola respuesta. Debajo elija idioma, formato y los complementos. Al activarlo no hay ningún complemento marcado. El complemento 3 «comprobar señales» se describe más abajo en la sección SEÑALES (COMPLEMENTO 3).
+   En el campo «Tarea adicional para la IA» puede, también sin modo directo, plantear una pregunta propia, p. ej. sobre un relé o el desarrollo de una acción. La IA la responde al principio del documento de análisis.
 4. Opcionalmente, «Incluir mensaje del foro» e introducir la dirección del mensaje. El foro de iTrain solo muestra los mensajes a usuarios registrados. Por eso la IA solo puede leer el mensaje si puede usar un navegador en el que usted haya iniciado sesión en el foro: con Claude, la extensión «Claude in Chrome» (Chrome debe estar abierto y la extensión conectada) o el navegador de la aplicación Claude, en el que inicia sesión una vez en el foro. Otros asistentes de IA no suelen poder hacerlo. En ese caso abra el mensaje en el navegador, copie el texto y péguelo en el campo «Texto del mensaje»; el programa lo añade a los demás archivos como Forum_Beitrag_<número>.txt.
 5. Haga clic en «Reunir». El campo «Progreso» muestra lo que se ha reunido y lo que falta.
 6. Después se abre la ventana con el paquete de análisis. Abra un chat nuevo y vacío en su asistente de IA, arrastre el recuadro azul con todos los archivos al campo de mensaje, añada el texto con «Copiar» y envíe. La ventana se puede imprimir.
@@ -27,17 +28,30 @@ QUÉ SE REÚNE
 Prompt: procede del servidor web itrainplus.de. El programa incluye una versión. En cada inicio el programa comprueba si hay una más reciente en el servidor y pregunta antes de descargarla. En lugar del servidor se puede configurar una carpeta local.
 Manual: procede de la página de descargas de Berros. Al iniciar, el programa comprueba si hay una versión más reciente y pregunta antes de descargarla. El PDF se convierte en texto una sola vez; cada página empieza con «===== Seite x von N =====» para que la IA pueda indicar números de página.
 Notas de la versión: proceden de la carpeta docs de su instalación de iTrain, reducidas a las versiones a partir de la 6.0. Si faltan, el programa pregunta si debe continuar de todos modos.
+Archivo de señales (solo con el complemento 3): Addon_Signals_EN_FR_ES_IT o Zusatz_Signale_DE_NL, procede como el prompt del servidor web itrainplus.de o del programa.
 Archivo de maqueta: el .tcdz se descomprime; la IA recibe el .tcd que contiene.
 Todo se guarda en la carpeta de trabajo. El prompt, el PDF y el texto del manual se reutilizan en el siguiente análisis mientras estén actualizados.
 
 COMPLEMENTOS
-El complemento 1 es la tabla de trenes; el complemento 2, la comprobación de andenes, longitudes de bloque y puntos de parada. A partir del prompt 2.3 se pueden elegir por separado. En modo directo, el programa escribe p. ej. «Extras Train table and Platforms» o «Extras Platforms» en el texto para el chat; en modo diálogo, la IA pregunta con cuatro respuestas: ambos, solo tabla de trenes, solo andenes, ninguno.
+El complemento 1 es la tabla de trenes; el complemento 2, la comprobación de andenes, longitudes de bloque y puntos de parada; el complemento 3, la comprobación de las señales (a partir del prompt 2.5, solo en modo directo). Los complementos se pueden elegir por separado. En modo directo, el programa escribe p. ej. «Extras Train table, Platforms and Signals» o «Extras Signals» en el texto para el chat; en modo diálogo, la IA pregunta sobre los complementos 1 y 2 con cuatro respuestas: ambos, solo tabla de trenes, solo andenes, ninguno.
+
+SEÑALES (COMPLEMENTO 3)
+Con la casilla «Complemento 3: comprobar señales» en modo directo, la IA comprueba además las señales de su maqueta. La base son las «Reglas para señales» de Berros (https://berros.eu/download/tutorial/). Al activar el modo directo no hay ningún complemento marcado; usted elige.
+Para ello el programa añade el archivo Addon_Signals_EN_FR_ES_IT_v….txt (grupo alemán/neerlandés: Zusatz_Signale_DE_NL_v….txt) como archivo aparte junto al prompt, el manual y el archivo de la maqueta, y nombra «Signals» en la línea del modo directo. El archivo está en la carpeta del análisis, dentro de la carpeta de trabajo.
+Se comprueba:
+- si cada señal está en el campo correcto del editor de bloques (señal principal, señal de maniobras, señal avanzada en la sección «Señal» o «Bloque»),
+- si las señales de varias funciones (p. ej. señal de salida con Sh1, señales Ks y Hl) están solo en el campo «Señal principal»,
+- si una señal está asignada en el bloque al que está agrupada en el panel,
+- si hay señales dibujadas que no están asignadas a ningún bloque,
+- si el orden en el panel se ajusta a las reglas (señal avanzada con o sin hueco antes de la señal principal, señal de maniobras antes de la señal principal).
+El resultado aparece en el documento de análisis como «Complemento 3: Comprobación de señales» con hallazgos propios S1, S2, etc.; sin hallazgos dice «Señales comprobadas (<número> señales), sin hallazgos». La IA lee el orden en el panel solo a partir de la secuencia de elementos; esos hallazgos se marcan con «probablemente». No se puede comprobar en qué lado de la vía está una señal.
+Como el prompt, el archivo complementario procede del servidor web itrainplus.de; el programa incluye una versión. Es un resumen de las reglas de Berros. Si Berros cambia las reglas o publica una versión más reciente, el programa lo indica al iniciar y al compilar en el campo «Progreso»; el archivo se revisa entonces y se ofrece como nueva versión.
 
 RUTAS
 A partir del prompt 2.3, la IA comprueba en cada análisis la viabilidad de todas las rutas: si los bloques existen, si se suceden en el plano de vías en la dirección indicada, si la opción «Strikt» se puede cumplir, si las rutas repetidas terminan donde empiezan y si las listas con «Longitud óptima» contienen un bloque adecuado. Si no hay nada que señalar, en «Sin hallazgos» figura: Rutas comprobadas, sin hallazgos.
 
 VER
-Tras la compilación, el menú «Ver» muestra el texto del prompt, el de las notas de versión y el del manual en una ventana aparte. Antes, las entradas están en gris. Con «Editar» puede ampliar el texto, p. ej. añadir reglas propias al prompt. Copiar, pegar y cortar funcionan con Ctrl+C, Ctrl+V y Ctrl+X (Mac: Cmd) o con los botones.
+Tras la compilación, el menú «Ver» muestra el texto del prompt, el de las señales (con el complemento 3), el de las notas de versión y el del manual en una ventana aparte. Con «Actualizar» arriba en el menú, el programa comprueba si el prompt, las señales y el manual están en la versión actual, descarga las nuevas versiones tras preguntar y deja todos los documentos en la carpeta de trabajo, en «Dokumente»; después pueden verse y editarse sin compilar. Antes, las entradas están en gris. Con «Editar» puede ampliar el texto, p. ej. añadir reglas propias al prompt. Copiar, pegar y cortar funcionan con Ctrl+C, Ctrl+V y Ctrl+X (Mac: Cmd) o con los botones.
 «Guardar» guarda la versión como «…_bearbeitet.txt» en la subcarpeta «Bearbeitet» de la carpeta de trabajo y sustituye así al original en el portapapeles, en la ventana de resultado y en la carpeta de la maqueta. El original se conserva; «Restaurar original» vuelve atrás. El texto para el chat indica a la IA los archivos editados, y el programa se lo advierte al copiar.
 En la siguiente compilación, el programa pregunta si se debe usar la versión editada o el original. Si el original ha cambiado entretanto (p. ej. un nuevo prompt), la pregunta lo indica.
 

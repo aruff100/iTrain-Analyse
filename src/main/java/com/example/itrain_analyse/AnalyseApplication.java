@@ -41,8 +41,8 @@ import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
 /**
- * Hauptfenster: Kenntnisstand, Layout-Datei, Prompt-Sprache, Direktmodus mit Sprache/Format/Zusätzen,
- * Forumsbeitrag, Fortschritt. Im Kenntnisstand "Anfänger" (Prompt für Anfänger, Runden) entfallen Direktmodus,
+ * Hauptfenster: Kenntnisstand, Layout-Datei, Prompt-Sprache, Direktmodus mit Sprache/Format/Zusätzen (Zusatz 3
+ * "Signale prüfen" legt die Datei Zusatz_Signale bei), Zusatzauftrag an die KI, Forumsbeitrag, Fortschritt. Im Kenntnisstand "Anfänger" (Prompt für Anfänger, Runden) entfallen Direktmodus,
  * Zusätze, Forumsbeitrag und Release Notes; beim Wählen erklärt {@link AnfaengerDialog} den Ablauf. Beim Start prüft es Prompt (Webserver) und Handbuch auf neue Fassungen und fragt vor
  * jedem Download. Nach dem Zusammenstellen öffnet sich das {@link ErgebnisFenster}.
  */
@@ -61,6 +61,10 @@ public class AnalyseApplication extends Application {
     private ComboBox<String> format;
     private CheckBox zugtabelle;
     private CheckBox bahnsteige;
+    private CheckBox signale;
+    private Label auftragLabel;
+    private TextArea auftragFeld;
+    private Label auftragHinweis;
     private CheckBox forum;
     private TextField forumUrl;
     private Label forumUrlLabel;
@@ -72,7 +76,9 @@ public class AnalyseApplication extends Application {
     private Button anleitung;
     private Button andereKnopf;
     private Button neuLadenKnopf;
+    private MenuItem ansichtAktualisieren;
     private MenuItem ansichtPrompt;
+    private MenuItem ansichtSignale;
     private MenuItem ansichtRelease;
     private MenuItem ansichtHandbuch;
     private TextArea protokoll;
@@ -81,19 +87,23 @@ public class AnalyseApplication extends Application {
     private Button oeffnen;
 
     private Zusammenstellung.Ergebnis letztes;
+    /** Quelle des Menüs "Ansichten": die letzte Zusammenstellung oder die Dokumente nach "Aktualisieren". */
+    private Zusammenstellung.Ergebnis ansichtQuelle;
     /** Direktmodus ist bei jedem Start aus und wird nicht gespeichert (Anwender 03.11.2026). */
     private boolean direktGewaehlt;
     /** Forum-Beitrag und Adresse sind bei jedem Start leer und werden nicht gespeichert (Anwender 03.11.2026). */
     private boolean forumGewaehlt;
     private String forumAdresse = "";
     private String forumInhalt = "";
+    /** Der Zusatzauftrag gilt für eine Analyse und wird nicht gespeichert (Anwender 16.11.2026). */
+    private String auftragInhalt = "";
     private String letztesLayout = "";
 
     @Override
     public void start(Stage stage) {
         this.stage = stage;
         ErsterStartDialog.beiBedarf();
-        scene = new Scene(new StackPane(), 900, 760);
+        scene = new Scene(new StackPane(), 900, 860);
         stage.setScene(scene);
         stage.setOnCloseRequest(e -> speichern());
         aufbauen();
@@ -131,6 +141,19 @@ public class AnalyseApplication extends Application {
         format = new ComboBox<>();
         zugtabelle = new CheckBox(I18n.t("feld.zugtabelle"));
         bahnsteige = new CheckBox(I18n.t("feld.bahnsteige"));
+        signale = new CheckBox(I18n.t("feld.signale"));
+        // Eigener Auftrag an die KI, z. B. ein Relais oder den Ablauf einer Aktion untersuchen (Anwender 16.11.2026).
+        auftragLabel = new Label(I18n.t("feld.auftrag"));
+        auftragLabel.setWrapText(true);
+        auftragLabel.setMaxWidth(150);
+        auftragFeld = new TextArea();
+        auftragFeld.setPrefRowCount(3);
+        auftragFeld.setWrapText(true);
+        auftragFeld.setPromptText(I18n.t("feld.auftragLeer"));
+        auftragHinweis = new Label(I18n.t("feld.auftragHinweis"));
+        auftragHinweis.setWrapText(true);
+        auftragHinweis.setStyle("-fx-font-size: 11px; -fx-opacity: 0.85;");
+        auftragHinweis.setMinHeight(Region.USE_PREF_SIZE);
         forum = new CheckBox(I18n.t("feld.forum"));
         forumUrl = new TextField();
         forumUrl.setPromptText("https://berros.eu/itrain/forum/viewtopic.php?p=…");
@@ -196,7 +219,15 @@ public class AnalyseApplication extends Application {
         gruppe.getItems().setAll(Sprachgruppe.von(anf));
         gruppe.setOnAction(e -> sprachenSetzen());
         format.getItems().setAll(Sprachgruppe.FORMATE);
-        direkt.setOnAction(e -> schalten());
+        direkt.setOnAction(e -> {
+            // Beim Einschalten sind alle Zusätze aus; der Anwender wählt sie selbst (Anwender 16.11.2026).
+            if (direkt.isSelected()) {
+                zugtabelle.setSelected(false);
+                bahnsteige.setSelected(false);
+                signale.setSelected(false);
+            }
+            schalten();
+        });
         forum.setOnAction(e -> schalten());
         Sprachgruppe gespeicherteGruppe;
         try {
@@ -215,6 +246,8 @@ public class AnalyseApplication extends Application {
         direkt.setSelected(direktGewaehlt);
         zugtabelle.setSelected(Einstellungen.getBool("zugtabelle", Einstellungen.getBool("zusaetze", false)));
         bahnsteige.setSelected(Einstellungen.getBool("bahnsteige", Einstellungen.getBool("zusaetze", false)));
+        signale.setSelected(Einstellungen.getBool("signale", false));
+        auftragFeld.setText(auftragInhalt);
         forum.setSelected(forumGewaehlt);
         forumUrl.setText(forumAdresse);
         forumText.setText(forumInhalt);
@@ -269,13 +302,19 @@ public class AnalyseApplication extends Application {
         });
         Menu einst = new Menu(I18n.t("menu.einstellungen"), null, vor);
 
+        // "Aktualisieren" prüft die Fassungen und stellt die Dokumente bereit (Anwender 16.11.2026).
+        ansichtAktualisieren = new MenuItem(I18n.t("menu.ansicht.aktualisieren"));
+        ansichtAktualisieren.setOnAction(e -> aktualisieren());
         ansichtPrompt = new MenuItem(I18n.t("menu.ansicht.prompt"));
         ansichtPrompt.setOnAction(e -> ansicht(Bearbeitet.Art.PROMPT));
+        ansichtSignale = new MenuItem(I18n.t("menu.ansicht.signale"));
+        ansichtSignale.setOnAction(e -> ansicht(Bearbeitet.Art.SIGNALE));
         ansichtRelease = new MenuItem(I18n.t("menu.ansicht.release"));
         ansichtRelease.setOnAction(e -> ansicht(Bearbeitet.Art.RELEASE));
         ansichtHandbuch = new MenuItem(I18n.t("menu.ansicht.handbuch"));
         ansichtHandbuch.setOnAction(e -> ansicht(Bearbeitet.Art.HANDBUCH));
-        Menu ansichten = new Menu(I18n.t("menu.ansichten"), null, ansichtPrompt, ansichtRelease, ansichtHandbuch);
+        Menu ansichten = new Menu(I18n.t("menu.ansichten"), null, ansichtAktualisieren, new SeparatorMenuItem(),
+                ansichtPrompt, ansichtSignale, ansichtRelease, ansichtHandbuch);
 
         MenuItem hilfe = new MenuItem(I18n.t("menu.hilfe"));
         hilfe.setOnAction(e -> HilfeDialoge.hilfe(stage));
@@ -357,6 +396,8 @@ public class AnalyseApplication extends Application {
         direktGewaehlt = direkt.isSelected();
         Einstellungen.setBool("zugtabelle", zugtabelle.isSelected());
         Einstellungen.setBool("bahnsteige", bahnsteige.isSelected());
+        Einstellungen.setBool("signale", signale.isSelected());
+        auftragInhalt = auftragFeld.getText();
         forumGewaehlt = forum.isSelected();
         forumAdresse = forumUrl.getText().trim();
         forumInhalt = forumText.getText();
@@ -369,7 +410,9 @@ public class AnalyseApplication extends Application {
     private void gitterFuellen() {
         gitter.getChildren().clear();
         int z = 0;
-        gitter.addRow(z++, new Label(I18n.t("feld.layout")), layout, new HBox(6, neuLadenKnopf, andereKnopf));
+        gitter.addRow(z++, new Label(I18n.t("feld.layout")), layout, andereKnopf);
+        // "Neu einlesen" linksbündig unter der Liste (Anwender 16.11.2026)
+        gitter.add(neuLadenKnopf, 1, z++);
         gitter.addRow(z++, new Label(I18n.t("feld.promptSprache")), gruppe);
         gitter.add(alsXml, 1, z++, 2, 1);
         if (anfaenger.isSelected()) {
@@ -382,6 +425,12 @@ public class AnalyseApplication extends Application {
         gitter.addRow(z++, new Label(I18n.t("feld.format")), format);
         gitter.add(zugtabelle, 1, z++, 2, 1);
         gitter.add(bahnsteige, 1, z++, 2, 1);
+        gitter.add(signale, 1, z++, 2, 1);
+        gitter.add(Oberflaeche.linie3d(), 0, z++, 3, 1);
+        gitter.add(auftragLabel, 0, z);
+        gitter.add(auftragFeld, 1, z++, 2, 1);
+        GridPane.setValignment(auftragLabel, javafx.geometry.VPos.TOP);
+        gitter.add(auftragHinweis, 1, z++, 2, 1);
         gitter.add(Oberflaeche.linie3d(), 0, z++, 3, 1);
         gitter.add(forum, 1, z++, 2, 1);
         gitter.addRow(z++, forumUrlLabel, forumUrl);
@@ -404,6 +453,7 @@ public class AnalyseApplication extends Application {
         format.setDisable(!an);
         zugtabelle.setDisable(!an);
         bahnsteige.setDisable(!an);
+        signale.setDisable(!an);
         forumUrl.setDisable(!forum.isSelected());
         forumUrlLabel.setDisable(!forum.isSelected());
         forumHinweis.setDisable(!forum.isSelected());
@@ -419,8 +469,18 @@ public class AnalyseApplication extends Application {
 
     /** Prüft Programm, Prompt (Webserver) und Handbuch auf neue Fassungen; jeder Download nur nach Rückfrage. */
     private void pruefeAktualisierungen(boolean vonHand) {
-        Thread t = new Thread(() -> {
-            meldeStart(vonHand, Zusammenstellung.LAEUFT + " " + I18n.t("start.pruefe"));
+        Thread t = new Thread(() -> pruefung(vonHand, true), "pruefung");
+        t.setDaemon(true);
+        t.start();
+    }
+
+    /**
+     * Prüft Programm (optional), Prompt und Zusatzdateien auf dem Server, die Signalregeln bei Berros und das
+     * Handbuch; neue Fassungen nach Rückfrage laden. Läuft im aufrufenden Hintergrund-Thread.
+     */
+    private void pruefung(boolean vonHand, boolean programm) {
+        meldeStart(vonHand, Zusammenstellung.LAEUFT + " " + I18n.t("start.pruefe"));
+        if (programm) {
             try {
                 ProgrammUpdate.Stand ps = ProgrammUpdate.pruefe();
                 if (ps.neu() == null) {
@@ -436,63 +496,108 @@ public class AnalyseApplication extends Application {
             } catch (IOException | RuntimeException ex) {
                 meldeStart(vonHand, Zusammenstellung.WARNUNG + " " + I18n.t("start.programmOffline", ex.getMessage()));
             }
-            if (Einstellungen.promptVomServer()) {
-                try {
-                    PromptQuelle.mitgelieferteInstallieren();
-                    List<PromptQuelle.Neu> neu = PromptQuelle.pruefeServer();
-                    if (neu.isEmpty()) {
-                        meldeStart(vonHand, Zusammenstellung.OK + " " + I18n.t("start.promptAktuell"));
-                    }
-                    for (PromptQuelle.Neu n : neu) {
-                        if (frage(I18n.t("dialog.prompt.titel"), I18n.t("dialog.prompt.text", n.datei()),
-                                I18n.t("knopf.herunterladen"), I18n.t("knopf.spaeter"))) {
-                            PromptQuelle.lade(n);
-                            meldeFx(Zusammenstellung.OK + " " + I18n.t("start.promptGeladen", n.datei()));
-                        } else {
-                            meldeFx(Zusammenstellung.WARNUNG + " " + I18n.t("start.promptNichtGeladen", n.datei()));
-                        }
-                    }
-                } catch (IOException ex) {
-                    meldeFx(Zusammenstellung.WARNUNG + " " + I18n.t("start.serverOffline", ex.getMessage()));
+        }
+        if (Einstellungen.promptVomServer()) {
+            try {
+                PromptQuelle.mitgelieferteInstallieren();
+                List<PromptQuelle.Neu> neu = PromptQuelle.pruefeServer();
+                if (neu.isEmpty()) {
+                    meldeStart(vonHand, Zusammenstellung.OK + " " + I18n.t("start.promptAktuell"));
                 }
-            } else {
-                meldeStart(vonHand, Zusammenstellung.OK + " " + I18n.t("start.promptOrdner",
-                        Einstellungen.get(Einstellungen.PROMPT_ORDNER, "")));
-            }
-            HandbuchSprache hs = HandbuchSprache.aus(Einstellungen.get(Einstellungen.HANDBUCH_SPRACHE, ""))
-                    .aufloesen(gruppeWert(), direktWert(), spracheWert());
-            String adresse = Einstellungen.handbuchAdresse();
-            HandbuchDownload.Stand st = HandbuchDownload.pruefe(adresse, hs);
-            String name = st.datei().getFileName().toString();
-            String mb = st.groesse() > 0 ? String.valueOf(Math.round(st.groesse() / 1048576.0)) : "?";
-            switch (st.zustand()) {
-                case AKTUELL -> meldeStart(vonHand,
-                        Zusammenstellung.OK + " " + I18n.t("start.handbuchAktuell", name));
-                case OFFLINE -> meldeFx(Zusammenstellung.WARNUNG + " " + I18n.t("start.handbuchOffline", name));
-                case NICHT_VERFUEGBAR -> meldeFx(Zusammenstellung.FEHLT + " " + I18n.t("start.handbuchNicht", name));
-                case FEHLT, NEUER -> {
-                    String text = st.zustand() == HandbuchDownload.Zustand.FEHLT
-                            ? I18n.t("dialog.handbuch.fehlt", name, mb) : I18n.t("dialog.handbuch.neu", name, mb);
-                    if (frage(I18n.t("dialog.handbuch.titel"), text, I18n.t("knopf.herunterladen"),
-                            I18n.t("knopf.spaeter"))) {
-                        meldeFx(Zusammenstellung.LAEUFT + " " + I18n.t("status.handbuchLaedt", name));
-                        try {
-                            HandbuchDownload.lade(adresse, hs);
-                            meldeFx(Zusammenstellung.OK + " " + I18n.t("start.handbuchGeladen", name));
-                        } catch (IOException ex) {
-                            meldeFx(Zusammenstellung.FEHLT + " " + I18n.t("start.handbuchFehler", ex.getMessage()));
-                        }
+                for (PromptQuelle.Neu n : neu) {
+                    if (frage(I18n.t("dialog.prompt.titel"), I18n.t("dialog.prompt.text", n.datei()),
+                            I18n.t("knopf.herunterladen"), I18n.t("knopf.spaeter"))) {
+                        PromptQuelle.lade(n);
+                        meldeFx(Zusammenstellung.OK + " " + I18n.t("start.promptGeladen", n.datei()));
                     } else {
-                        meldeFx(Zusammenstellung.WARNUNG + " " + I18n.t("start.handbuchNichtGeladen", name));
+                        meldeFx(Zusammenstellung.WARNUNG + " " + I18n.t("start.promptNichtGeladen", n.datei()));
                     }
                 }
-                default -> {
+            } catch (IOException ex) {
+                meldeFx(Zusammenstellung.WARNUNG + " " + I18n.t("start.serverOffline", ex.getMessage()));
+            }
+        } else {
+            meldeStart(vonHand, Zusammenstellung.OK + " " + I18n.t("start.promptOrdner",
+                    Einstellungen.get(Einstellungen.PROMPT_ORDNER, "")));
+        }
+        // Signalregeln bei Berros: Hat sich die Quelle der Zusatzdatei geändert? (nur Hinweis, kein Download)
+        try {
+            Sprachgruppe g = gruppeWert();
+            Path zusatz = PromptQuelle.aktuell(Zusatzdatei.signale(g == null ? Sprachgruppe.DE_NL : g));
+            String m = SignalQuelle.meldung(SignalQuelle.pruefe(zusatz));
+            if (m == null) {
+                meldeStart(vonHand, Zusammenstellung.OK + " " + I18n.t("start.signaleAktuell"));
+            } else {
+                meldeFx(Zusammenstellung.WARNUNG + " " + m);
+            }
+        } catch (IOException ex) {
+            meldeStart(vonHand, Zusammenstellung.WARNUNG + " " + I18n.t("start.signaleOffline", ex.getMessage()));
+        }
+        HandbuchSprache hs = HandbuchSprache.aus(Einstellungen.get(Einstellungen.HANDBUCH_SPRACHE, ""))
+                .aufloesen(gruppeWert(), direktWert(), spracheWert());
+        String adresse = Einstellungen.handbuchAdresse();
+        HandbuchDownload.Stand st = HandbuchDownload.pruefe(adresse, hs);
+        String name = st.datei().getFileName().toString();
+        String mb = st.groesse() > 0 ? String.valueOf(Math.round(st.groesse() / 1048576.0)) : "?";
+        switch (st.zustand()) {
+            case AKTUELL -> meldeStart(vonHand,
+                    Zusammenstellung.OK + " " + I18n.t("start.handbuchAktuell", name));
+            case OFFLINE -> meldeFx(Zusammenstellung.WARNUNG + " " + I18n.t("start.handbuchOffline", name));
+            case NICHT_VERFUEGBAR -> meldeFx(Zusammenstellung.FEHLT + " " + I18n.t("start.handbuchNicht", name));
+            case FEHLT, NEUER -> {
+                String text = st.zustand() == HandbuchDownload.Zustand.FEHLT
+                        ? I18n.t("dialog.handbuch.fehlt", name, mb) : I18n.t("dialog.handbuch.neu", name, mb);
+                if (frage(I18n.t("dialog.handbuch.titel"), text, I18n.t("knopf.herunterladen"),
+                        I18n.t("knopf.spaeter"))) {
+                    meldeFx(Zusammenstellung.LAEUFT + " " + I18n.t("status.handbuchLaedt", name));
+                    try {
+                        HandbuchDownload.lade(adresse, hs);
+                        meldeFx(Zusammenstellung.OK + " " + I18n.t("start.handbuchGeladen", name));
+                    } catch (IOException ex) {
+                        meldeFx(Zusammenstellung.FEHLT + " " + I18n.t("start.handbuchFehler", ex.getMessage()));
+                    }
+                } else {
+                    meldeFx(Zusammenstellung.WARNUNG + " " + I18n.t("start.handbuchNichtGeladen", name));
                 }
             }
-            if (vonHand) {
-                meldeStart(vonHand, Zusammenstellung.OK + " " + I18n.t("start.fertig"));
+            default -> {
             }
-        }, "pruefung");
+        }
+        if (vonHand) {
+            meldeStart(vonHand, Zusammenstellung.OK + " " + I18n.t("start.fertig"));
+        }
+    }
+
+    /**
+     * Menü "Ansichten" > "Aktualisieren": prüft, ob Prompt, Signale und Handbuch die aktuelle Fassung haben (neue
+     * nach Rückfrage laden), und legt die Dokumente in {@code <Arbeitsordner>/Dokumente} bereit. Danach lassen sie
+     * sich wie nach dem Zusammenstellen ansehen und bearbeiten.
+     */
+    private void aktualisieren() {
+        speichern();
+        protokoll.clear();
+        boolean anf = anfaenger.isSelected();
+        Zusammenstellung.Auftrag a = new Zusammenstellung.Auftrag(layout.getValue(), gruppe.getValue(),
+                Einstellungen.docsOrdner(), Einstellungen.arbeitsordner(), false, direkt.isSelected() && !anf,
+                sprache.getValue(), false, false, !anf, format.getValue(), "", "", "",
+                Einstellungen.handbuchAdresse(),
+                HandbuchSprache.aus(Einstellungen.get(Einstellungen.HANDBUCH_SPRACHE, "")));
+        ansichtAktualisieren.setDisable(true);
+        Thread t = new Thread(() -> {
+            pruefung(true, false);
+            try {
+                Zusammenstellung.Ergebnis e = Zusammenstellung.dokumente(a, this::frage, this::meldeFx);
+                Platform.runLater(() -> {
+                    ansichtQuelle = e;
+                    ansichtAktualisieren.setDisable(false);
+                    ansichtenSchalten();
+                });
+            } catch (IOException | RuntimeException ex) {
+                meldeFx(Zusammenstellung.FEHLT + " " + I18n.t("status.fehler",
+                        ex.getMessage() == null ? ex.toString() : ex.getMessage()));
+                Platform.runLater(() -> ansichtAktualisieren.setDisable(false));
+            }
+        }, "aktualisieren");
         t.setDaemon(true);
         t.start();
     }
@@ -544,8 +649,9 @@ public class AnalyseApplication extends Application {
         Zusammenstellung.Auftrag auftrag = new Zusammenstellung.Auftrag(layout.getValue(), gruppe.getValue(),
                 Einstellungen.docsOrdner(), Einstellungen.arbeitsordner(), alsXml.isSelected(),
                 direkt.isSelected() && !anf, sprache.getValue(), zugtabelle.isSelected() && !anf,
-                bahnsteige.isSelected() && !anf, format.getValue(),
-                mitForum ? url : "", mitForum ? forumText.getText() : "",
+                bahnsteige.isSelected() && !anf, direkt.isSelected() && signale.isSelected() && !anf,
+                format.getValue(), mitForum ? url : "", mitForum ? forumText.getText() : "",
+                anf ? "" : auftragFeld.getText(),
                 Einstellungen.handbuchAdresse(),
                 HandbuchSprache.aus(Einstellungen.get(Einstellungen.HANDBUCH_SPRACHE, "")));
         Task<Zusammenstellung.Ergebnis> task = new Task<>() {
@@ -566,6 +672,7 @@ public class AnalyseApplication extends Application {
         });
         start.setDisable(true);
         letztes = null;
+        ansichtQuelle = null;
         ansichtenSchalten();
         Thread th = new Thread(task, "zusammenstellung");
         th.setDaemon(true);
@@ -574,6 +681,7 @@ public class AnalyseApplication extends Application {
 
     private void fertig(Zusammenstellung.Ergebnis e) {
         letztes = e;
+        ansichtQuelle = e;
         zwischenablage(e);
         start.setDisable(false);
         ergebnisZeigen.setDisable(false);
@@ -595,28 +703,36 @@ public class AnalyseApplication extends Application {
         }
     }
 
-    /** Menü "Ansichten": erst nutzbar, wenn alles zusammengestellt ist; Release-Text nur, wenn vorhanden. */
+    /**
+     * Menü "Ansichten": die Dokumente sind ausgegraut, bis zusammengestellt oder über "Aktualisieren" bereitgestellt
+     * wurde; ein Eintrag nur, wenn das Dokument vorhanden ist (Signale z. B. nur mit Zusatz 3 oder nach
+     * "Aktualisieren").
+     */
     private void ansichtenSchalten() {
         if (ansichtPrompt == null) {
             return;
         }
-        ansichtPrompt.setDisable(letztes == null || letztes.text(Bearbeitet.Art.PROMPT).isEmpty());
-        ansichtRelease.setDisable(letztes == null || letztes.text(Bearbeitet.Art.RELEASE).isEmpty());
-        ansichtHandbuch.setDisable(letztes == null || letztes.text(Bearbeitet.Art.HANDBUCH).isEmpty());
+        ansichtPrompt.setDisable(ansichtQuelle == null || ansichtQuelle.text(Bearbeitet.Art.PROMPT).isEmpty());
+        ansichtSignale.setDisable(ansichtQuelle == null || ansichtQuelle.text(Bearbeitet.Art.SIGNALE).isEmpty());
+        ansichtRelease.setDisable(ansichtQuelle == null || ansichtQuelle.text(Bearbeitet.Art.RELEASE).isEmpty());
+        ansichtHandbuch.setDisable(ansichtQuelle == null || ansichtQuelle.text(Bearbeitet.Art.HANDBUCH).isEmpty());
     }
 
     private void ansicht(Bearbeitet.Art art) {
-        if (letztes == null) {
+        if (ansichtQuelle == null) {
             return;
         }
-        letztes.text(art).ifPresent(t -> TextFenster.zeige(stage, t, () -> letztes, neu -> {
-            letztes = neu;
+        ansichtQuelle.text(art).ifPresent(t -> TextFenster.zeige(stage, t, () -> ansichtQuelle, neu -> {
+            ansichtQuelle = neu;
             for (Zusammenstellung.Status s : neu.status().subList(Math.max(0, neu.status().size() - 1),
                     neu.status().size())) {
                 melde(s.symbol() + " " + s.text());
             }
-            zwischenablage(neu);
-            ErgebnisFenster.aktualisieren(stage, neu, letztesLayout);
+            if (!Zusammenstellung.nurDokumente(neu)) {
+                letztes = neu;
+                zwischenablage(neu);
+                ErgebnisFenster.aktualisieren(stage, neu, letztesLayout);
+            }
         }));
     }
 

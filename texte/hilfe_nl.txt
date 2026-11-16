@@ -15,9 +15,10 @@ Gevorderd: de volledige analyse met de prompt, zoals beschreven op itrainplus.de
 Beginner: de prompt voor beginners. Hij controleert uw project in rondes, per ronde één onderwerp met hoogstens drie punten, en legt elk punt uit met klikstappen en de pagina in de handleiding. Na elke ronde past u de punten in iTrain aan, voert u de diagnose uit, slaat u op en uploadt u het .tcdz-bestand met een afbeelding van de diagnose opnieuw in dezelfde chat. Het programma heeft u alleen voor de start nodig. Directe modus, extra's, forumbericht en release notes vervallen. De knop "Handleiding beginners" legt de werkwijze uitgebreid uit, ook kosten en limieten. De prompt is met Claude op een testbaan met goed resultaat getest.
 
 ZO WERKT HET
-1. Kies het layoutbestand. De lijst toont de bestanden uit de iTrain-map "layouts", het laatst gewijzigde bovenaan. Met "Andere …" kiest u een bestand op een andere plek.
+1. Kies het layoutbestand. De lijst toont de bestanden uit de iTrain-map "layouts", het laatst gewijzigde bovenaan. Met "Bladeren" kiest u een bestand op een andere plek.
 2. Kies de taal van de prompt: Deutsch/Nederlands of English/Français/Español/Italiano.
-3. Eventueel directe modus: de AI stelt dan geen vragen en levert alles in één antwoord. Kies daaronder taal, formaat en de twee aanvullingen.
+3. Eventueel directe modus: de AI stelt dan geen vragen en levert alles in één antwoord. Kies daaronder taal, formaat en de aanvullingen. Bij het inschakelen is geen aanvulling aangevinkt. Aanvulling 3 „seinen controleren” staat hieronder beschreven in het gedeelte SEINEN (AANVULLING 3).
+   In het veld „Aanvullende opdracht voor de AI” kunt u, ook zonder directe modus, een eigen vraag stellen, bijv. over een relais of het verloop van een actie. De AI beantwoordt die vooraan in het analysedocument.
 4. Eventueel „Forumbericht meenemen” en het adres van het bericht invullen. Het iTrain-forum toont berichten alleen aan aangemelde gebruikers. De AI kan het bericht daarom alleen lezen als hij een browser mag gebruiken waarin u op het forum bent aangemeld: bij Claude de extensie „Claude in Chrome” (Chrome moet open zijn en de extensie verbonden) of de browser van de Claude-app, waarin u zich eenmaal op het forum aanmeldt. Andere AI-assistenten kunnen dat meestal niet. Open dan het bericht in de browser, kopieer de tekst en plak hem in het veld „Tekst bericht”; het programma voegt hem als Forum_Beitrag_<nummer>.txt bij de andere bestanden.
 5. Klik op "Samenstellen". Het veld "Voortgang" toont wat is verzameld en wat ontbreekt.
 6. Daarna opent het venster met het analysepakket. Open een nieuwe, lege chat in uw AI-assistent, sleep het blauwe vak met alle bestanden naar het berichtveld, voeg de tekst toe met "Kopiëren" en verzend. Het venster kan worden afgedrukt.
@@ -27,17 +28,30 @@ WAT ER WORDT VERZAMELD
 Prompt: komt van de webserver itrainplus.de. Een versie zit in het programma. Bij elke start controleert het programma of er een nieuwere op de server staat en vraagt het voor het downloaden. In plaats van de server kan een lokale map worden ingesteld.
 Handleiding: komt van de downloadpagina van Berros. Bij de start controleert het programma of er een nieuwere versie is en vraagt het voor het downloaden. De PDF wordt één keer omgezet naar tekst; elke pagina begint met "===== Seite x von N =====", zodat de AI paginaverwijzingen kan geven.
 Release notes: komen uit de docs-map van uw iTrain-installatie, ingekort tot de versies vanaf 6.0. Ontbreken ze, dan vraagt het programma of het toch verder moet.
+Seinenbestand (alleen met aanvulling 3): Zusatz_Signale_DE_NL of Addon_Signals_EN_FR_ES_IT, komt net als de prompt van de webserver itrainplus.de of uit het programma.
 Layoutbestand: de .tcdz wordt uitgepakt; de AI krijgt de .tcd daaruit.
 Alles staat in de werkmap. Prompt, handleiding-PDF en handleidingtekst worden bij de volgende analyse hergebruikt zolang ze actueel zijn.
 
 AANVULLINGEN
-Aanvulling 1 is de treintabel, aanvulling 2 de controle van perrons, bloklengtes en stoppunten. Vanaf prompt 2.3 zijn ze apart te kiezen. In de directe modus schrijft het programma bijv. „Zusätze Zugtabelle und Bahnsteige” of „Zusätze Bahnsteige” in de tekst voor de chat; in de dialoogmodus vraagt de AI met vier antwoorden: beide, alleen treintabel, alleen perrons, geen.
+Aanvulling 1 is de treintabel, aanvulling 2 de controle van perrons, bloklengtes en stoppunten, aanvulling 3 de controle van de seinen (vanaf prompt 2.5, alleen in de directe modus). De aanvullingen zijn afzonderlijk te kiezen. In de directe modus schrijft het programma bijv. „Zusätze Zugtabelle, Bahnsteige und Signale” of „Zusätze Signale” in de tekst voor de chat; in de dialoogmodus vraagt de AI over aanvulling 1 en 2 met vier antwoorden: beide, alleen treintabel, alleen perrons, geen.
+
+SEINEN (AANVULLING 3)
+Met het vinkje „Aanvulling 3: seinen controleren” in de directe modus controleert de AI ook de seinen van uw baan. De basis zijn de „Regels voor seinen” van Berros (https://berros.eu/download/tutorial/). Bij het inschakelen van de directe modus is geen aanvulling aangevinkt; u kiest zelf.
+Het programma voegt daarvoor het bestand Zusatz_Signale_DE_NL_v….txt (Engelse taalgroep: Addon_Signals_EN_FR_ES_IT_v….txt) als apart bestand toe aan prompt, handleiding en layoutbestand en noemt „Signale” in de regel van de directe modus. Het bestand staat in de map van de run in de werkmap.
+Gecontroleerd wordt:
+- of elk sein in de blokeditor in het juiste veld staat (hoofdsein, rangeersein, voorsein in het gedeelte „Sein” of „Blok”),
+- of meervoudige seinen (bijv. uitrijsein met Sh1, Ks- en Hl-seinen) alleen in het veld „Hoofdsein” staan,
+- of een sein is toegewezen in het blok waartoe het in het tableau is gegroepeerd,
+- of getekende seinen aan geen enkel blok zijn toegewezen,
+- of de volgorde in het tableau bij de regels past (voorsein met of zonder tussenruimte voor het hoofdsein, rangeersein voor het hoofdsein).
+Het resultaat staat in het analysedocument als „Aanvulling 3: Seinencontrole” met eigen bevindingen S1, S2 enz.; zonder bevindingen staat er „Seinen gecontroleerd (<aantal> seinen), geen bevindingen”. De volgorde in het tableau leest de AI alleen uit de reeks tableau-elementen; zulke bevindingen zijn met „vermoedelijk” gemarkeerd. Aan welke kant van het spoor een sein staat, is niet te controleren.
+Het aanvullende bestand komt net als de prompt van de webserver itrainplus.de; een versie zit in het programma. Het is een samenvatting van de regels van Berros. Wijzigt Berros de regels of verschijnt daar een nieuwere versie, dan meldt het programma dat bij de start en bij het samenstellen in het veld „Voortgang”; het bestand wordt dan herzien en als nieuwe versie beschikbaar gesteld.
 
 ROUTES
 Vanaf prompt 2.3 controleert de AI in elke analyse alle treinroutes op uitvoerbaarheid: of de blokken bestaan, of ze in het sporenplan in de opgegeven richting op elkaar volgen, of de optie „Strikt” haalbaar is, of herhaalde routes eindigen waar ze beginnen en of lijsten met „Optimale lengte” een passend blok bevatten. Is er niets te melden, dan staat onder „Zonder bevindingen”: Routes gecontroleerd, geen bevindingen.
 
 WEERGAVE
-Na het samenstellen toont het menu „Weergave” de prompttekst, de tekst van de release notes en de tekst van de handleiding in een apart venster. Daarvoor zijn de items grijs. Met „Bewerken” kunt u de tekst aanvullen, bijv. eigen controleregels aan de prompt toevoegen. Kopiëren, plakken en knippen gaan met Ctrl+C, Ctrl+V en Ctrl+X (Mac: Cmd) of met de knoppen.
+Na het samenstellen toont het menu „Weergave” de prompttekst, de tekst van de seinen (met aanvulling 3), de tekst van de release notes en de tekst van de handleiding in een apart venster. Met „Bijwerken” bovenaan in het menu controleert het programma of prompt, seinen en handleiding de actuele versie hebben, laadt nieuwe versies na bevestiging en zet alle documenten klaar in de werkmap onder „Dokumente”; daarna zijn ze ook zonder samenstellen te bekijken en te bewerken. Daarvoor zijn de items grijs. Met „Bewerken” kunt u de tekst aanvullen, bijv. eigen controleregels aan de prompt toevoegen. Kopiëren, plakken en knippen gaan met Ctrl+C, Ctrl+V en Ctrl+X (Mac: Cmd) of met de knoppen.
 „Opslaan” bewaart de versie als „…_bearbeitet.txt” in de submap „Bearbeitet” van de werkmap en vervangt daarmee het origineel op het klembord, in het resultaatvenster en in de layoutmap. Het origineel blijft bewaard; „Origineel herstellen” schakelt terug. De tekst voor de chat noemt de bewerkte bestanden voor de AI, en het programma wijst u er bij het kopiëren op.
 Bij de volgende samenstelling vraagt het programma of de bewerkte versie of het origineel gebruikt moet worden. Is het origineel intussen gewijzigd (bijv. een nieuwe prompt), dan staat dat in de vraag.
 

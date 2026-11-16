@@ -22,9 +22,12 @@ public final class Quellordner {
     private Quellordner() {
     }
 
-    /** Neueste Prompt-Datei der Gruppe: höchste Versionsnummer im Namen (…_v2.2.txt), bei Gleichstand die jüngere. */
-    public static Path prompt(Path ordner, Sprachgruppe gruppe) throws IOException {
-        String praefix = gruppe.dateiPraefix().toLowerCase(Locale.ROOT);
+    /**
+     * Neueste Datei mit diesem Namensanfang (Prompt oder Zusatzdatei): höchste Versionsnummer im Namen (…_v2.2.txt),
+     * bei Gleichstand die jüngere.
+     */
+    public static Path prompt(Path ordner, String dateiPraefix) throws IOException {
+        String praefix = dateiPraefix.toLowerCase(Locale.ROOT);
         try (Stream<Path> s = Files.list(ordner)) {
             return s.filter(Files::isRegularFile)
                     .filter(p -> {
@@ -32,7 +35,7 @@ public final class Quellordner {
                         return n.startsWith(praefix) && n.endsWith(".txt");
                     })
                     .max(Comparator.comparing(Quellordner::dateiVersion).thenComparing(Quellordner::geaendert))
-                    .orElseThrow(() -> new IOException(I18n.t("fehler.promptFehlt", gruppe.dateiPraefix() + "….txt (" + ordner + ")")));
+                    .orElseThrow(() -> new IOException(I18n.t("fehler.promptFehlt", dateiPraefix + "….txt (" + ordner + ")")));
         }
     }
 

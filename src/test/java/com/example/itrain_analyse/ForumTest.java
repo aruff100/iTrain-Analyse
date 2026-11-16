@@ -17,8 +17,8 @@ class ForumTest {
 
     @Test
     void nachrichtNenntDieForumsdatei() {
-        String n = Sprachgruppe.DE_NL.nachricht(false, "Deutsch", false, false, "Text",
-                "https://berros.eu/itrain/forum/viewtopic.php?p=1", "Forum_Beitrag_1.txt", List.of());
+        String n = Sprachgruppe.DE_NL.nachricht(false, "Deutsch", false, false, false, "Text",
+                "https://berros.eu/itrain/forum/viewtopic.php?p=1", "Forum_Beitrag_1.txt", List.of(), "");
         assertTrue(n.contains("viewtopic.php?p=1"));
         assertTrue(n.contains("Der Text dieses Beitrags liegt als Datei Forum_Beitrag_1.txt bei."));
     }

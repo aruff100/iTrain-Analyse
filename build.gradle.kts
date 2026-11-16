@@ -11,7 +11,7 @@ plugins {
 }
 
 group = "com.example"
-version = "1.2"
+version = "1.3"
 
 repositories {
     mavenCentral()
@@ -42,7 +42,7 @@ tasks.processResources {
     // Mitgelieferte Prompt-Fassung (dieselben Dateien wie auf dem Webserver),
     // damit das Programm auch ohne Internet beim ersten Start einen Prompt hat.
     from("server/analyse-daten") {
-        include("Prompt_*.txt")
+        include("Prompt_*.txt", "Zusatz_*.txt", "Addon_*.txt")
         into("com/example/itrain_analyse")
     }
     from("server/analyse-daten/manifest.properties") {
@@ -52,7 +52,7 @@ tasks.processResources {
 }
 
 // Erzeugt server/analyse-daten/manifest.properties neu (Dateiname und SHA-256 je
-// Prompt-Gruppe). Nach jedem Austausch einer Prompt-Datei ausfuehren und dann
+// Prompt-Gruppe und Zusatzdatei). Nach jedem Austausch einer Prompt-Datei ausfuehren und dann
 // Prompt-Datei UND manifest.properties auf den Webserver laden.
 tasks.register("promptManifest") {
     group = "itrain-analyse"
@@ -60,7 +60,8 @@ tasks.register("promptManifest") {
     doLast {
         val dir = file("server/analyse-daten")
         val gruppen = linkedMapOf("DE_NL" to "Prompt_Analyse_DE_NL", "EN_FR_ES_IT" to "Prompt_Analysis_EN_FR_ES_IT",
-            "ANFAENGER_DE_NL" to "Prompt_Anfaenger_DE_NL", "ANFAENGER_EN_FR_ES_IT" to "Prompt_Beginners_EN_FR_ES_IT")
+            "ANFAENGER_DE_NL" to "Prompt_Anfaenger_DE_NL", "ANFAENGER_EN_FR_ES_IT" to "Prompt_Beginners_EN_FR_ES_IT",
+            "SIGNALE_DE_NL" to "Zusatz_Signale_DE_NL", "SIGNALE_EN_FR_ES_IT" to "Addon_Signals_EN_FR_ES_IT")
         val sb = StringBuilder("# Prompt-Dateien fuer iTrain-Analyse. Erzeugt von \"gradlew promptManifest\" - nicht von Hand aendern.\n")
         for ((key, praefix) in gruppen) {
             val datei = dir.listFiles { f -> f.name.startsWith(praefix) && f.name.endsWith(".txt") }

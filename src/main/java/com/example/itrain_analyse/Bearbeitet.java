@@ -21,7 +21,7 @@ public final class Bearbeitet {
 
     /** Welcher Text. */
     public enum Art {
-        PROMPT, RELEASE, HANDBUCH
+        PROMPT, SIGNALE, RELEASE, HANDBUCH
     }
 
     /** Eine gespeicherte Fassung. */

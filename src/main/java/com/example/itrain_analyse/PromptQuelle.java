@@ -22,11 +22,30 @@ import java.util.Properties;
  * vor einem Download nach.
  *
  * <p>Ordner: wie bisher die neueste Datei aus einem lokalen Ordner (z. B. Proton Drive).
+ *
+ * <p>Dasselbe gilt für die {@link Zusatzdatei Zusatzdateien} (Zusatz 3 Signale, Anwender 16.11.2026): eigener
+ * Schlüssel im Manifest ({@code SIGNALE_DE_NL.datei} …), Prüfung, Rückfrage und Download wie beim Prompt.
  */
 public final class PromptQuelle {
 
-    /** Neuere Fassung auf dem Server. */
-    public record Neu(Sprachgruppe gruppe, String datei, String sha256) {
+    /** Neuere Fassung auf dem Server; {@code schluessel} ist der Name im Manifest (z. B. DE_NL, SIGNALE_DE_NL). */
+    public record Neu(String schluessel, String datei, String sha256) {
+    }
+
+    /** Eine Datei auf dem Server: Schlüssel im Manifest und Anfang des Dateinamens. */
+    record Eintrag(String schluessel, String praefix) {
+    }
+
+    /** Alle Prompt- und Zusatzdateien. */
+    static List<Eintrag> eintraege() {
+        List<Eintrag> l = new ArrayList<>();
+        for (Sprachgruppe g : Sprachgruppe.values()) {
+            l.add(new Eintrag(g.name(), g.dateiPraefix()));
+        }
+        for (Zusatzdatei z : Zusatzdatei.values()) {
+            l.add(new Eintrag(z.name(), z.dateiPraefix()));
+        }
+        return l;
     }
 
     private static final String MANIFEST = "manifest.properties";
@@ -40,22 +59,31 @@ public final class PromptQuelle {
 
     /** Die Prompt-Datei, die für die Zusammenstellung verwendet wird. */
     public static Path aktuell(Sprachgruppe g) throws IOException {
+        return aktuell(new Eintrag(g.name(), g.dateiPraefix()));
+    }
+
+    /** Die Zusatzdatei, die für die Zusammenstellung verwendet wird. */
+    public static Path aktuell(Zusatzdatei z) throws IOException {
+        return aktuell(new Eintrag(z.name(), z.dateiPraefix()));
+    }
+
+    private static Path aktuell(Eintrag e) throws IOException {
         if (!Einstellungen.promptVomServer()) {
             Path ordner = Einstellungen.pfad(Einstellungen.PROMPT_ORDNER, "");
             if (ordner == null || !Files.isDirectory(ordner)) {
                 throw new IOException(I18n.t("fehler.promptOrdner"));
             }
-            return Quellordner.prompt(ordner, g);
+            return Quellordner.prompt(ordner, e.praefix());
         }
         Properties lokal = lokalesManifest();
-        String name = lokal.getProperty(g.name() + ".datei");
+        String name = lokal.getProperty(e.schluessel() + ".datei");
         if (name == null || !Files.isRegularFile(cacheOrdner().resolve(name))) {
             mitgelieferteInstallieren();
             lokal = lokalesManifest();
-            name = lokal.getProperty(g.name() + ".datei");
+            name = lokal.getProperty(e.schluessel() + ".datei");
         }
         if (name == null) {
-            throw new IOException(I18n.t("fehler.promptFehlt", g.dateiPraefix()));
+            throw new IOException(I18n.t("fehler.promptFehlt", e.praefix()));
         }
         return cacheOrdner().resolve(name);
     }
@@ -65,15 +93,15 @@ public final class PromptQuelle {
         Properties server = new Properties();
         server.load(new StringReader(Http.text(Http.datei(Einstellungen.promptAdresse(), MANIFEST))));
         List<Neu> neu = new ArrayList<>();
-        for (Sprachgruppe g : Sprachgruppe.values()) {
-            String datei = server.getProperty(g.name() + ".datei");
-            String sha = server.getProperty(g.name() + ".sha256");
+        for (Eintrag e : eintraege()) {
+            String datei = server.getProperty(e.schluessel() + ".datei");
+            String sha = server.getProperty(e.schluessel() + ".sha256");
             if (datei == null || sha == null) {
                 continue;
             }
             Path lokal;
             try {
-                lokal = aktuell(g);
+                lokal = aktuell(e);
             } catch (IOException ex) {
                 lokal = null;
             }
@@ -82,7 +110,7 @@ public final class PromptQuelle {
                 continue;
             }
             if (lokal == null || !sha.equalsIgnoreCase(sha256(lokal))) {
-                neu.add(new Neu(g, datei, sha));
+                neu.add(new Neu(e.schluessel(), datei, sha));
             }
         }
         return neu;
@@ -113,12 +141,12 @@ public final class PromptQuelle {
             throw new IOException(I18n.t("fehler.pruefsumme", n.datei()));
         }
         Properties lokal = lokalesManifest();
-        String alt = lokal.getProperty(n.gruppe().name() + ".datei");
+        String alt = lokal.getProperty(n.schluessel() + ".datei");
         Files.move(tmp, ziel, StandardCopyOption.REPLACE_EXISTING);
         if (alt != null && !alt.equals(n.datei())) {
             Files.deleteIfExists(cacheOrdner().resolve(alt));
         }
-        lokal.setProperty(n.gruppe().name() + ".datei", n.datei());
+        lokal.setProperty(n.schluessel() + ".datei", n.datei());
         speichern(lokal);
         return ziel;
     }
@@ -134,13 +162,16 @@ public final class PromptQuelle {
         }
         Files.createDirectories(cacheOrdner());
         Properties lokal = lokalesManifest();
-        for (Sprachgruppe g : Sprachgruppe.values()) {
-            String vorhanden = lokal.getProperty(g.name() + ".datei");
-            if (vorhanden != null && Files.isRegularFile(cacheOrdner().resolve(vorhanden))) {
+        for (Eintrag e : eintraege()) {
+            String datei = mit.getProperty(e.schluessel() + ".datei");
+            if (datei == null) {
                 continue;
             }
-            String datei = mit.getProperty(g.name() + ".datei");
-            if (datei == null) {
+            // Vorhandene Fassung behalten, außer das Programm bringt eine neuere mit (z. B. Prompt 2.5 mit Programm
+            // 1.3, solange der Server noch 2.4 anbietet).
+            String vorhanden = lokal.getProperty(e.schluessel() + ".datei");
+            if (vorhanden != null && Files.isRegularFile(cacheOrdner().resolve(vorhanden))
+                    && !aelter(vorhanden, datei)) {
                 continue;
             }
             try (InputStream in = PromptQuelle.class.getResourceAsStream(datei)) {
@@ -149,7 +180,7 @@ public final class PromptQuelle {
                 }
                 Files.copy(in, cacheOrdner().resolve(datei), StandardCopyOption.REPLACE_EXISTING);
             }
-            lokal.setProperty(g.name() + ".datei", datei);
+            lokal.setProperty(e.schluessel() + ".datei", datei);
         }
         speichern(lokal);
     }

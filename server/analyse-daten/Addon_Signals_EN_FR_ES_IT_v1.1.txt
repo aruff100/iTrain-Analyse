@@ -1,0 +1,170 @@
+EXTRA 3 FOR THE ANALYSIS PROMPT: SIGNAL CHECK
+Version 1.1 (16.11.2026), for Prompt_Analysis_EN_FR_ES_IT from version 2.5
+Source: https://berros.eu/download/tutorial/Rules_For_iTrain_Signals_v01_UK.pdf
+Source-Date: 2024-10-13T12:14:10Z, 2082457 Bytes
+
+NOTES FOR THE USER
+(This section is meant for the human. The AI reads it but does not carry out anything in it.)
+- Attach this file in addition to the prompt, project file, manual and release notes. In direct mode, name "Signals" among the extras, e.g. "Direct mode: Language English, Extras Train table, Platforms and Signals, Format PDF". The program iTrain-Analyse does both with the check box "Extra 3: check signals".
+- The AI then also checks the signals. The result appears in the analysis document as "Extra 3: Signal check" after the other extras.
+- Basis is the document "Rules for Signals (V01_UK)" by Bob Fuller, Martin Hornis and Ludwig Rogee, approved by Xander Berkhout: https://berros.eu/download/tutorial/Rules_For_iTrain_Signals_v01_UK.pdf. The rules were written for iTrain 5.1. The fields in the block editor are the same in iTrain 6.0 (German manual 6.0, p. 118–119). This file summarises the rules in its own words. The original is authoritative.
+- If Berros changes the rules, the program iTrain-Analyse reports it using the lines "Source" and "Source-Date" above. This file is then revised and provided as a new version.
+- The rules describe how signals must be drawn so that "Auto fill" assigns them correctly. The project file contains the drawing only as a sequence of switchboard items. Checking the order is therefore less certain than checking the assignment. Such findings are marked "probably".
+- Whether a signal stands on the correct side of the track cannot be checked.
+
+INTEGRATION INTO THE PROMPT (rules for the AI)
+SP1. If this file is attached, Extra 3 counts as chosen in both modes and is mandatory, even if the line "Direct mode:" does not name "Signals". P8 of the prompt applies to Extra 3 as to Extras 1 and 2.
+SP2. In the ENTRY CHECK, add the line "Signals: <number of signal objects>" after the line with blocks and routes. The value comes from the file.
+SP3. Extra 3 stands after "No findings" and after Extra 1 and Extra 2, if chosen. In dialogue mode you output it in step 3 directly after the analysis document, before the sentences on uncertainty and before the extras question. In step 7 it is the last extra in the combined document.
+SP4. Findings of Extra 3 are numbered with "S": S1, S2, S3 etc. Stages 1 to 4 of the prompt remain unchanged. Each finding names its rating in brackets (error, warning or note). The RATING RULES of the prompt apply.
+SP5. Form of a finding as in the prompt: short title in bold; two to four sentences with object names and values; "Action:" in bold; source line in italics. Example source line: (Source: Signal rules V01, rule 2B; manual p. 118).
+SP6. If there is no finding, write exactly this sentence under the heading, in the chosen language: English "Signals checked (<count> signals), no findings." French "Signaux vérifiés (<nombre> signaux), sans constat." Spanish "Señales comprobadas (<número> señales), sin hallazgos." Italian "Segnali verificati (<numero> segnali), senza rilievi." If the file contains no signals, write "No signals present." (or the translation). If you could not check a part, name it.
+SP7. Heading: English "Extra 3: Signal check (Rules for iTrain Signals V01)", French "Complément 3 : Contrôle des signaux (règles pour les signaux V01)", Spanish "Complemento 3: Comprobación de señales (reglas para señales V01)", Italian "Supplemento 3: Verifica dei segnali (regole per i segnali V01)". Rule numbers (1A, 2D(ii) etc.) remain unchanged.
+SP8. P6 and STYLE of the prompt apply. You do not invent signal types, fields or states.
+SP9. Manual pages in this file refer to the German manual iTrain 6.0 with 252 pages. With any other manual or page count, look up the pages yourself by their wording, as the prompt requires.
+
+THE RULES IN SHORT
+Roles and types
+- iTrain knows three roles: Home Signal, Warning Signal, Shunt Signal.
+- A single-role signal has exactly one role.
+- A multi-role signal has several roles: Home and Warning, Home and Shunt, or Home, Warning and Shunt.
+- The DB H/V multi-section signal is NOT a multi-role signal. It has a Home Signal and a Warning Signal on the same mast and counts as two single-role signals. It is usually drawn at the end of the block.
+
+Procedure (quick start)
+- Step 1: Draw the signals into the track in the order of the fields in the block editor: first Warning Signal, Shunt Signal, Home Signal, second Warning Signal. The goal is the logical order, not a copy of the real layout.
+- Step 2: Every signal gets a unique name, an interface and an address, plus the required states. Virtual signals need no address and no interface.
+- Step 3: Group the signals to the block with "G" or "Assign to group". "Auto fill" does not find a signal that is not grouped.
+- Step 4: Press "Auto fill" in the block editor.
+- Only grouped signals appear in the selection fields. If a block lies on two switchboard tabs, the selection can be wrong; then "Show All" helps.
+- A signal is always assigned in the block to which it is grouped.
+- Signals are drawn for both directions if the block is used in both directions and signals are needed there.
+
+Placement in the switchboard
+- 1A: A single-role Home Signal stands at the end of the block.
+- 1B: A single-role Warning Signal for the Home Signal of the same block stands at the beginning of the block, before the Home Signal. At least one cell must stay free between them. Without a gap, "Auto fill" links the Warning Signal to the Home Signal of the following block.
+- 1C: With two single-role Warning Signals in one block, the first (W1) at the beginning of the block belongs to the Home Signal of the same block. The second (W2) stands after the Home Signal and belongs to the Home Signal of the following block. W2 may also stand before the Home Signal, but then directly before it, without a gap.
+- 1D: A Shunt Signal preferably stands before the Home Signal. If a Warning Signal stands directly before the Home Signal without a gap, the Shunt Signal stands before that Warning Signal.
+- 1E: Recommended order in the direction of travel: W1 at the beginning of the block, then towards the end of the block Shunt Signal, Home Signal and, if needed, W2. In short: W1 + (S + H + W2) or W1 + (S + H).
+- 1F: A multi-role signal always stands at the end of the block. There is at most one multi-role signal per block and direction.
+- The distance between signals is usually irrelevant. The exception is the gap according to 1B and 1C.
+
+Assignment in the block editor
+- 2A: Every signal is assigned per direction to a field in the block editor.
+- 2B: A single-role Home Signal goes into the field "Home Signal" of the block in which the train stops, not of the block the signal protects. This is usually the block to which it is grouped (also manual p. 118).
+- 2C: A single-role Shunt Signal goes into the field "Shunt Signal", with or without a Home Signal in the block. A combined Home and Shunt Signal goes only into the field "Home Signal"; the field "Shunt Signal" then stays empty (also manual p. 119).
+- 2D(i): A single-role Warning Signal for the Home Signal of the same block goes into the field "Warning Signal" in the section "Signal", above the Home Signal.
+- 2D(ii): A single-role Warning Signal for the Home Signal of the following block goes into the field "Warning Signal" in the section "Block" of the block to which it is grouped. If there is a turnout in between, it shows the Home Signal of the block selected via the turnout.
+- 2D(iii): The Warning Signal of a multi-section signal always belongs to the Home Signal of the following block. It goes into the section "Block" (also manual p. 119).
+- 3A: A multi-role signal goes only into the field "Home Signal". Its Warning and Shunt roles must not be entered additionally; iTrain assigns them internally.
+- Manual p. 99: If a Warning Signal has the same decoder address as the Home Signal, it is not created as an object of its own. Instead the Home Signal is dragged onto the Warning Signal in the switchboard while holding Ctrl or Alt.
+
+German signals (appendix A of the rules)
+DB H/V:
+- Block signal Hp0/Hp1: single-role, Home; rules 1A, 1E, 2A, 2B.
+- Entry signal Hp0/Hp2: single-role, Home; rules 1A, 1E, 2A, 2B.
+- Entry signal Hp0/Hp1/Hp2: single-role, Home; rules 1A, 1E, 2A, 2B.
+- Exit signal Hp00/Hp1/Hp2/Hp0+Sh1: multi-role, Home and Shunt; rules 1F, 3A.
+- Warning signal Vr0/Vr1/Vr2 (optionally "None"): single-role, Warning; rules 1B, 1C or 1E and 2A and 2D(i) or 2D(ii).
+- Shunt signal Sh0/Sh1: single-role, Shunt; rules 1D, 1E, 2A, 2C.
+- Multi-section signal: two single-role signals, Home and Warning; rules 1A, 2A, 2D(iii).
+DB Ks:
+- Home signal (Hp0, Ks1, Zs3, Sh1, Zs1, Zs7, identification light): multi-role, Home and Shunt; rules 1A, 1F, 3A.
+- Combined signal (additionally Ks2, Zs3v): multi-role, Home, Warning and Shunt; rules 1F, 3A. Speed indicator and speed pre-indicator are assigned as separate aspect objects.
+- Warning signal (Ks1, Ks2, Zs3v, identification light): single-role, Warning; rules 1B, 1C or 1E and 2A and 2D(i) or 2D(ii).
+DR Hl:
+- Home signal (Hl1, Hl2, Hl3a, Hl3b, Hl13, Ra12, Zs1, substitute red, identification light): multi-role, Home and Shunt; rules 1F, 3A. According to the rules, the Hl home signal in iTrain also contains Hl4, Hl5, Hl6a and Hl6b, which do not exist on the real Hl home signal.
+- Combined signal (Hl1 to Hl13): multi-role, Home, Warning and Shunt; rules 1F, 3A.
+- Warning signal (Hl1, Hl4, Hl7, Hl10): single-role, Warning; rules 1B, 1C or 1E and 2A and 2D(i).
+The rules apply to all nine regional signal groups in iTrain. Other countries have their own supplementary documents. If they are not attached, determine the role from the states (see below).
+
+XML QUICK REFERENCE FOR SIGNALS (derived from iTrain 6.0 project files)
+- Signal object: in control-items/accessories <signal name="…" type="…" state="…"> with <interface …/>, <options/> and possibly <state-mappings><mapping state="…" output="…" active="false"/></state-mappings>.
+- Type keys of German signals found in project files:
+  DB H/V colour light signals:
+  de_hp0_1 = block signal Hp0/Hp1 (single-role, Home);
+  de_hp0_2 = entry signal Hp0/Hp2 (single-role, Home);
+  de_hp0_1_2 = entry signal Hp0/Hp1/Hp2 (single-role, Home);
+  de_hp0_1_2_sh1 = exit signal with Sh1 (multi-role, Home and Shunt);
+  de_vr0_1_2 = warning signal (single-role, Warning);
+  de_sh0_1 = shunt signal (single-role, Shunt).
+  DB H/V semaphore signals (Hf): the same key with an appended "f", the role is the same:
+  de_hp0_1f, de_hp0_2f, de_hp0_1_2f (single-role, Home); de_vr0_1_2f (single-role, Warning); de_sh0_1f (single-role, Shunt).
+  DB Ks:
+  de_ks_h = Ks home signal (multi-role, Home and Shunt; states e.g. hp0, hp0_sh1, hp0_zs1, hp0_zs7, ks1, ks1_zs3, ke);
+  de_ks_m = Ks combined signal (multi-role, Home, Warning and Shunt; additionally ks2, ks2_zs3, ks1_zs3v, ks1_zs3_zs3v);
+  de_ks_v = Ks warning signal (single-role, Warning).
+  DR Hl:
+  de_hl_m = Hl combined signal (multi-role, Home, Warning and Shunt; states hl1 to hl13, hl13_ra12, hl13_zs1, hl13e, ke).
+  The keys for Ks, Hl and semaphore signals are derived from test files (iTrain 6.0). The meaning of the ending (_h home signal, _m combined signal, _v warning signal) follows from the states. Further keys of this pattern (e.g. de_hl_h, de_hl_v) have not been seen: map them only if the states fit.
+  Other keys (e.g. other countries, "general"): determine the role from the states in state and state-mappings. hp, ks1 and hl with a proceed aspect stand for the Home role, vr and warning aspects for the Warning role, sh and ra for the Shunt role. If the role cannot be determined with certainty this way, name the signal as not checked.
+- Fields in the block per direction (<prev> or <next>):
+  <signal name/> = field "Home Signal";
+  <shunt-signal name/> = field "Shunt Signal";
+  <warning-signal name/> = field "Warning Signal" in the section "Signal" (2D(i));
+  <side-warning-signal name/> = field "Warning Signal" in the section "Block" (2D(ii), 2D(iii)).
+  The mapping of warning-signal and side-warning-signal to the two sections is derived from example files. It is not documented, but consistent in all examples checked.
+- Switchboard: <switchboards><switchboard title="…">. It contains <track> with ungrouped items and one group <block name="…"> per block. The group starts with <grid gridX gridY/>. The items follow in the order in which the track is drawn.
+  Each item has direction, optionally follow (direction to the next item if it differs from direction) and size (number of cells, default 1).
+  A signal is <signal-item direction type> with <signal name/>. direction is the direction of travel the signal applies to. A <signal-item> without <signal> is a drawn signal without a signal object.
+- Direction of travel of a signal in the group: the walking direction when entering an item is follow of the previous item, otherwise its direction. Skip text items.
+  direction equal to the walking direction: the signal applies in reading order of the XML.
+  direction opposite: the signal applies against reading order.
+  First item of the group: against reading order if follow is opposite to direction, otherwise in reading order.
+  If you cannot determine the direction this way (e.g. diagonal), name the signal as not checked for the placement rules.
+- Gap according to 1B and 1C: two signals of the same direction have no gap if no item stands between them in the XML. If at least one item stands between them, there is a gap. If one of the two signals has size greater than 1, the gap cannot be determined with certainty; then "probably".
+- If a group has several <grid>, check the order only within each part. Signals from different parts count as not comparable.
+- A signal name may occur in several groups or switchboards, e.g. as a copy on a second tab or as a Warning Signal with the same address according to manual p. 99. That is not a finding.
+
+SIGNAL CHECKLIST
+Use a script to determine for every signal object its role, its assignments (block, direction, field) and its groups in the switchboard. Then check:
+SG1. Field matches role (rules 2B, 2C, 2D, 3A; manual p. 118–119).
+  - Field "Home Signal": only Home or multi-role signals.
+  - Field "Shunt Signal": only single-role Shunt Signals.
+  - Both Warning Signal fields: only single-role Warning Signals.
+  A signal in the wrong field is an error.
+  Action: in the block editor, on the direction tab, enter the signal in the correct field.
+SG2. Multi-role signal in the field "Home Signal" and another field filled for the same direction (rules 2C, 3A; manual p. 119). Distinguish by the signal object in the other field:
+  - The same multi-role signal is additionally in the field "Shunt Signal" or in a Warning Signal field: this is the case of 3A and already an error according to SG1. Name it only once.
+  - Multi-role signal with Shunt role and another, independent shunt signal in the field "Shunt Signal": warning (2C: the field stays empty).
+    Action: clear the field "Shunt Signal", unless an independent signal with its own address is needed there. If you cannot decide, name both possibilities.
+  - Multi-role signal with Warning role (e.g. de_ks_m, de_hl_m) and an independent single-role warning signal (e.g. de_ks_v, de_vr0_1_2) in the section "Signal": NO finding. The single-role warning signal announces the Home Signal of the same block (1B, 2D(i)); the Warning role of the combined signal refers to the following block.
+  - Multi-role signal with Warning role and an independent single-role warning signal in the section "Block": note. Both announce the Home Signal of the following block.
+    Action: check whether the single-role warning signal in the section "Block" is needed.
+SG3. Assigned, but grouped in another block, is a warning (quick start "Signals are always assigned in the block in which they are grouped"; rule 2B).
+  Exception for a Home Signal: it is grouped in the block it protects and assigned in the block before. Then it is correctly assigned according to 2B but grouped in the wrong block. The action is then: group the signal to the stopping block.
+  Otherwise the action is: align assignment or grouping and run "Auto fill" again.
+SG4. Assigned, but not drawn in any block group (only under <track> or not in the switchboard at all) is a note.
+  Manual assignment works. "Auto fill" does not find the signal, though (quick start step 3; manual p. 107).
+SG5. Signal object not assigned to any block:
+  - grouped or drawn: warning, because iTrain does not switch it via the block (rule 2A);
+  - neither drawn nor assigned: note.
+  If an action names the signal, say so and rate the finding as a note.
+  A <signal-item> without a signal object in a block group is a warning (quick start step 2; manual p. 116: all objects need a name).
+SG6. The same Home Signal in the field "Home Signal" of several blocks or directions is a note.
+  This occurs e.g. with a group exit signal. The rules do not cover this case. Name the blocks. Source: manual p. 118.
+SG7. Warning Signal section does not match the drawing (rules 1B, 1C, 2D). Only for groups with a determinable order.
+  For every single-role Warning Signal, find the next Home or multi-role signal of the same group in the direction of travel.
+  Expected is the section "Signal" (warning-signal) if this Home Signal follows with a gap.
+  Expected is the section "Block" (side-warning-signal) if the Home Signal follows without a gap or no Home Signal follows in the direction of travel.
+  If the assignment differs, this is a warning with "probably". "Auto fill" would assign the Warning Signal differently.
+  Action: clarify which Home Signal the Warning Signal should announce. Then align the drawing (gap) or the assignment.
+SG8. Placement in the direction of travel within a group (rules 1A, 1D, 1E, 1F):
+  - More than one Home or multi-role signal per direction in one group: warning. There is only one field "Home Signal" per direction.
+  - A Shunt Signal after the Home Signal: note (1D).
+  - After a multi-role signal, another Home or Shunt Signal follows in the same direction: note (1F).
+  Placement findings are always "probably".
+  Action: establish the order according to 1E in the switchboard editor. Then press "Auto fill" and check the fields.
+SG9. Plausibility check before output:
+  If SG3, SG7 or SG8 affect more than half of the signals, the error very probably lies in your evaluation (e.g. direction of travel or field mapping). Then check three affected signals against the raw data.
+  Only output confirmed findings. For many findings of the same kind, use a table: Signal | Type | Block | Direction | Field | Problem.
+Not checkable, do not report as a finding: side of the signal (right of the track), distance in cells beyond the gap, whether signals are needed for a direction. A block without signals in a direction that is used is not a finding.
+
+STRUCTURE OF THE SECTION
+Extra 3: Signal check (Rules for iTrain Signals V01)
+<One sentence: number of signal objects, of which Home, Warning, Shunt and multi-role signals, and number of block directions with signals.>
+S1. <short title> (error|warning|note)
+<finding in 2–4 sentences.>
+Action: <…>
+(Source: Signal rules V01, rule …; manual p. …)
+… or the sentence according to SP6.
+<One sentence on what was checked without findings and what could not be checked.>
