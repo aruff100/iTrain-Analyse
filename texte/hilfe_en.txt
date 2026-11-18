@@ -16,11 +16,11 @@ Beginner: the beginner prompt. It checks your project in rounds, one topic with 
 
 HOW IT WORKS
 1. Choose the layout file. The list shows the files from the iTrain folder "layouts", the most recently changed at the top. "Browse" lets you choose a file elsewhere.
-2. Choose the prompt language: Deutsch/Nederlands or English/Français/Español/Italiano.
+2. Click "Start quick check". The program checks the layout file without AI and shows the result in a separate window (with "Print" and "View check report"). "Done" ends here; "Continue to AI analysis" opens three step windows one after the other. In the first you choose the prompt language: Deutsch/Nederlands or English/Français/Español/Italiano.
 3. Optionally direct mode: the AI then asks no questions and delivers everything in one reply. Below it choose language, format and the extras. When switched on, no extra is ticked. Extra 3 "check signals" is described below in the section SIGNALS (EXTRA 3).
    In the field "Additional task for the AI" you can, also without direct mode, ask a question of your own, e.g. about a relay or the sequence of an action. The AI answers it at the front of the analysis document.
 4. Optionally "Include forum post" and enter the address of the post. The iTrain forum shows posts to logged-in users only. The AI can therefore only read the post if it may use a browser in which you are logged in to the forum: with Claude, the "Claude in Chrome" extension (Chrome must be open and the extension connected) or the browser of the Claude app, in which you log in to the forum once. Other AI assistants usually cannot do this. In that case open the post in your browser, copy the text and paste it into the field "Post text"; the program adds it to the other files as Forum_Beitrag_<number>.txt.
-5. Click "Assemble". The "Progress" field shows what was collected and what is missing.
+5. In the last step window click "Assemble". This fills the working folder; the "Progress" field shows what was collected and what is missing. "Run" then puts the package into the clipboard. "Cancel" closes the steps without putting anything into the clipboard.
 6. Then the window with the analysis package opens. Open a new, empty chat in your AI assistant, drag the blue box with all files into the message field, add the text with "Copy" and send. The window can be printed.
 Files and text are also on the clipboard: Ctrl+V (Mac: Cmd+V) in the message field pastes them if your chat interface supports it.
 
@@ -31,6 +31,11 @@ Release notes: come from the docs folder of your iTrain installation, shortened 
 Signal file (only with extra 3): Addon_Signals_EN_FR_ES_IT or Zusatz_Signale_DE_NL, comes like the prompt from the web server itrainplus.de or from the program.
 Layout file: the .tcdz is unpacked; the AI gets the .tcd inside.
 Everything is stored in the working folder. Prompt, manual PDF and manual text are reused for the next analysis as long as they are current.
+
+PRE-CHECK AND CHECK REPORT
+Before the chat the program checks the layout file itself according to fixed rules: counts for the entry check, feedback delays, missing and duplicate addresses, block and feedback lengths, block connections, stop points, vehicles and trains, all routes (connections, "Strict", repetition, gauge, permissions of train, locomotive, wagon and train type, superfluous markers) and the tables for extras 1 and 2. The result is attached as the file Pre-check.txt (Vorpruefung.txt for German/Dutch). The AI adopts these values, verifies some of them against the layout file and adds what only it can do: actions, relationships, train options, signals and explanations. This saves calculation work and makes the results more reliable.
+Quick check without AI: the button "Start quick check" in the main window runs only this check. The result appears in a separate window with paragraphs on what was checked, what the AI checks in addition and how many tokens the AI saves. There you can print the check report and view it as PDF. If that is enough for you, click "Done"; the program then points out that the quick check is superficial and can make mistakes. "Continue to AI analysis" leads through the steps prompt and output, additional task and forum post, assemble. How large the saving is depends mainly on the size of the layout file.
+Manual excerpt: instead of all 252 pages only an excerpt with the pages that the prompt, the signal file and the pre-check cite goes into the chat (about 40 pages). This saves most of the tokens. It only works with the German manual. With an additional task for the AI or a forum post the complete manual is always included. Switch off under Settings > Preferences > Paths.
 
 EXTRAS
 Extra 1 is the train table, extra 2 the check of platforms, block lengths and stop points, extra 3 the check of the signals (from prompt 2.5 on, direct mode only). The extras can be chosen individually. In direct mode the program writes e.g. "Extras Train table, Platforms and Signals" or "Extras Signals" into the text for the chat; in dialogue mode the AI asks about extras 1 and 2 with four answers: both, train table only, platforms only, none.

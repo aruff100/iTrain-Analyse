@@ -140,11 +140,18 @@ final class ErgebnisFenster {
         Region luecke = new Region();
         HBox.setHgrow(luecke, Priority.ALWAYS);
         HBox knoepfe = new HBox(8, drucken, ordnerOeffnen, luecke, schliessen);
+        if (e.pruefbericht() != null) {
+            // Variante B: Prüfbericht des Programms ohne KI (Anwender 18.11.2026)
+            Button bericht = Oberflaeche.farbe(new Button("📄  " + I18n.t("knopf.pruefbericht")), Oberflaeche.TUERKIS);
+            bericht.setOnAction(x -> Oberflaeche.oeffne(e.pruefbericht().toFile(), null, false));
+            knoepfe.getChildren().add(2, bericht);
+        }
         knoepfe.setPadding(new Insets(10, 16, 12, 16));
 
         BorderPane wurzel = new BorderPane(sp);
         wurzel.setBottom(knoepfe);
-        Scene sc = new Scene(wurzel, 760, 720);
+        javafx.geometry.Rectangle2D bild = javafx.stage.Screen.getPrimary().getVisualBounds();
+        Scene sc = new Scene(wurzel, Math.min(980, bild.getWidth() * 0.9), Math.min(980, bild.getHeight() * 0.9));
         Farben.anwenden(sc);
         st.setScene(sc);
         st.show();

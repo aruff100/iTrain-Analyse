@@ -34,7 +34,7 @@ public final class Zusammenstellung {
     public record Auftrag(Path projektdatei, Sprachgruppe gruppe, Path docsOrdner, Path arbeitsordner,
             boolean tcdAlsXml, boolean direkt, String sprache, boolean zugtabelle, boolean bahnsteige,
             boolean signale, String format, String forumUrl, String forumText, String zusatzauftrag,
-            String handbuchAdresse, HandbuchSprache handbuchSprache) {
+            String handbuchAdresse, HandbuchSprache handbuchSprache, boolean pruefbericht, boolean handbuchAuszug) {
     }
 
     /** Ein Eintrag der Statusliste: Symbol (✔, ⚠, ✖) und Text. */
@@ -51,7 +51,7 @@ public final class Zusammenstellung {
 
     /** Dateien in der Reihenfolge für den Chat, Nachrichtentext, Ordner, Statusliste, Texte, Auftrag. */
     public record Ergebnis(List<Path> dateien, String nachricht, Path ordner, List<Status> status, List<Text> texte,
-            Auftrag auftrag, String forumDatei) {
+            Auftrag auftrag, String forumDatei, Path pruefbericht) {
 
         public java.util.Optional<Text> text(Bearbeitet.Art art) {
             return texte.stream().filter(x -> x.art() == art).findFirst();
@@ -109,8 +109,38 @@ public final class Zusammenstellung {
         melde.accept(new Status(OK, I18n.t("status.layout", tcd.tcd().getFileName(),
                 tcd.itrainVersion() == null ? I18n.t("status.nichtGelesen") : tcd.itrainVersion())));
 
+        // 3a. Vorprüfung im Programm (Anwender 18.11.2026, Weg 3): Ermittlungen nach festen Regeln als Datei für die
+        // KI, auf Wunsch zusätzlich als Prüfbericht (PDF) ohne KI. Der Prompt für Anfänger verwendet sie nicht.
+        Vorpruefung.Ergebnis vp = null;
+        Path pruefbericht = null;
+        if (!a.gruppe().anfaenger()) {
+            meldung.accept(LAEUFT + " " + I18n.t("status.vorpruefungLaeuft"));
+            try {
+                Anlage anlage = Anlage.lies(tcd.tcd());
+                // Im Dialogmodus fragt die KI erst später nach den Zusätzen; dann liegen beide Tabellen bereit.
+                vp = Vorpruefung.pruefe(anlage, a.gruppe().deutsch(), !a.direkt() || a.zugtabelle(),
+                        !a.direkt() || a.bahnsteige());
+                Path vpDatei = Vorpruefung.schreibe(vp, ordner, AppVersion.text());
+                dateien.add(vpDatei);
+                melde.accept(new Status(OK, I18n.t("status.vorpruefung", vpDatei.getFileName(),
+                        vp.anzahl(Vorpruefung.Art.FEHLER), vp.anzahl(Vorpruefung.Art.HINWEIS),
+                        vp.anzahl(Vorpruefung.Art.ANMERKUNG), vp.routenGeprueft())));
+                if (a.pruefbericht()) {
+                    pruefbericht = Pruefbericht.schreibe(vp, ordner, AppVersion.text());
+                    melde.accept(new Status(OK, I18n.t("status.pruefbericht", pruefbericht.getFileName())));
+                }
+            } catch (IOException | RuntimeException ex) {
+                vp = null;
+                melde.accept(new Status(WARNUNG, I18n.t("status.vorpruefungFehler",
+                        ex.getMessage() == null ? ex.toString() : ex.getMessage())));
+            }
+        }
+
         // 4. Handbuch
         Version hbVersion = handbuch(a, rf, melde, meldung, ordner, dateien, texte, true);
+        if (!a.gruppe().anfaenger()) {
+            auszug(a, melde, dateien, texte, vp);
+        }
 
         // 5. Release Notes (nur lokal). Der Prompt für Anfänger braucht sie nicht (Anwender 04.11.2026).
         if (a.gruppe().anfaenger()) {
@@ -145,7 +175,125 @@ public final class Zusammenstellung {
         String nachricht = nachricht(a, texte, forumDatei);
         Files.writeString(ordner.resolve(NACHRICHT_DATEI), nachricht + "\n", StandardCharsets.UTF_8);
         melde.accept(new Status(OK, I18n.t("status.fertig", dateien.size(), groesse(dateien) / 1024, ordner)));
-        return new Ergebnis(dateien, nachricht, ordner, status, texte, a, forumDatei);
+        return new Ergebnis(dateien, nachricht, ordner, status, texte, a, forumDatei, pruefbericht);
+    }
+
+    /**
+     * Ersetzt das Handbuch in der Dateiliste durch den Auszug mit den Seiten, die Prompt, Signal-Datei und Vorprüfung
+     * nennen (Anwender 18.11.2026). Nur für das deutsche Handbuch mit 252 Seiten; bei einem eigenen Auftrag an die KI
+     * oder einem Forumsbeitrag bleibt das vollständige Handbuch, weil die KI dafür andere Seiten brauchen kann.
+     */
+    private static void auszug(Auftrag a, Consumer<Status> melde, List<Path> dateien, List<Text> texte,
+            Vorpruefung.Ergebnis vp) throws IOException {
+        if (!a.handbuchAuszug()) {
+            return;
+        }
+        var hb = texte.stream().filter(x -> x.art() == Bearbeitet.Art.HANDBUCH).findFirst();
+        if (hb.isEmpty() || !dateien.contains(hb.get().datei())) {
+            return;
+        }
+        boolean eigeneFrage = a.zusatzauftrag() != null && !a.zusatzauftrag().isBlank()
+                || a.forumUrl() != null && !a.forumUrl().isBlank()
+                || a.forumText() != null && !a.forumText().isBlank();
+        if (eigeneFrage) {
+            melde.accept(new Status(OK, I18n.t("status.auszugVollstaendig")));
+            return;
+        }
+        Path voll = hb.get().datei();
+        if (!HandbuchAuszug.moeglich(voll)) {
+            melde.accept(new Status(OK, I18n.t("status.auszugNichtMoeglich")));
+            return;
+        }
+        java.util.Set<Integer> seiten = new java.util.TreeSet<>();
+        for (Text t : texte) {
+            if (t.art() == Bearbeitet.Art.PROMPT || t.art() == Bearbeitet.Art.SIGNALE) {
+                seiten.addAll(HandbuchAuszug.seitenAus(Files.readString(t.datei(), StandardCharsets.UTF_8)));
+            }
+        }
+        if (vp != null) {
+            seiten.addAll(Vorpruefung.seiten(vp));
+        }
+        HandbuchAuszug.Ergebnis aus = HandbuchAuszug.schreibe(voll, seiten, a.gruppe().deutsch());
+        // Die vollständige Fassung bleibt im Ordner (Menü "Ansichten"), geht aber nicht in den Chat.
+        dateien.set(dateien.indexOf(voll), aus.datei());
+        melde.accept(new Status(OK, I18n.t("status.auszug", aus.datei().getFileName(), aus.seiten(), aus.gesamt())));
+        // Ersparnis gegenüber dem Paket ohne Kurzprüfung und mit vollständigem Handbuch (Anwender 18.11.2026)
+        long mit = groesse(dateien);
+        long ohne = mit - Files.size(aus.datei()) + Files.size(voll);
+        for (Path p : dateien) {
+            String n = p.getFileName().toString();
+            if (n.equals(Vorpruefung.DATEINAME) || n.equals(Vorpruefung.DATEINAME_EN)) {
+                ohne -= Files.size(p);
+            }
+        }
+        if (ohne > mit) {
+            melde.accept(new Status(OK, I18n.t("status.ersparnis", prozent(ohne, mit), mit / 1024, ohne / 1024)));
+        }
+    }
+
+    static int prozent(long ohne, long mit) {
+        return ohne <= 0 ? 0 : (int) Math.round((ohne - mit) * 100.0 / ohne);
+    }
+
+    /** Ergebnis der Kurzprüfung ohne KI: Prüfbericht, Vorprüfung, Ersparnis für die KI in % (-1 = unbekannt). */
+    public record Kurz(Path pruefbericht, Path vorpruefung, Vorpruefung.Ergebnis ergebnis, int ersparnis,
+            long mitKb, long ohneKb) {
+    }
+
+    /** Unterordner des Laufs für die Kurzprüfung; das Zusammenstellen leert ihn nicht. */
+    public static final String KURZ_ORDNER = "Kurzpruefung";
+
+    /**
+     * Kurzprüfung ohne KI (Anwender 18.11.2026): Vorprüfung und Prüfbericht für die gewählte Layout-Datei in
+     * {@code <Arbeitsordner>/<Layout>/Kurzpruefung}. Schätzt außerdem, um wie viel kleiner das Paket für die KI
+     * durch Vorprüfung und Handbuch-Auszug wird (nur wenn Prompt und Handbuch-Text schon im Zwischenspeicher liegen).
+     */
+    public static Kurz kurzpruefung(Auftrag a, Consumer<String> meldung) throws IOException {
+        if (a.projektdatei() == null || !Files.isRegularFile(a.projektdatei())) {
+            throw new IOException(I18n.t("status.layoutFehlt"));
+        }
+        String basis = a.projektdatei().getFileName().toString().replaceFirst("(?i)\\.tcdz?$", "");
+        Path ordner = a.arbeitsordner().resolve(basis).resolve(KURZ_ORDNER);
+        Files.createDirectories(ordner);
+        leeren(ordner);
+        meldung.accept(LAEUFT + " " + I18n.t("status.kurzLaeuft"));
+        Projektdatei.Ergebnis tcd = Projektdatei.entpacke(a.projektdatei(), ordner, false);
+        boolean deutsch = a.gruppe().deutsch();
+        Vorpruefung.Ergebnis vp = Vorpruefung.pruefe(Anlage.lies(tcd.tcd()), deutsch, true, true);
+        Path vpDatei = Vorpruefung.schreibe(vp, ordner, AppVersion.text());
+        Path bericht = Pruefbericht.schreibe(vp, ordner, AppVersion.text());
+        int ersparnis = -1;
+        long mit = 0;
+        long ohne = 0;
+        try {
+            HandbuchSprache hs = a.handbuchSprache().aufloesen(a.gruppe(), a.direkt(), a.sprache());
+            Path pdf = HandbuchDownload.lokal(a.handbuchAdresse(), hs);
+            Path cache = Einstellungen.cache().resolve("handbuch-text");
+            if (a.handbuchAuszug() && Files.isRegularFile(pdf) && Handbuch.istZwischengespeichert(pdf, cache)) {
+                Path voll = Handbuch.cacheDatei(pdf, cache);
+                if (HandbuchAuszug.moeglich(voll)) {
+                    Path prompt = PromptQuelle.aktuell(a.gruppe());
+                    java.util.Set<Integer> seiten = new java.util.TreeSet<>(
+                            HandbuchAuszug.seitenAus(Files.readString(prompt, StandardCharsets.UTF_8)));
+                    seiten.addAll(Vorpruefung.seiten(vp));
+                    HandbuchAuszug.Ergebnis aus = HandbuchAuszug.schreibe(voll, seiten, deutsch, ordner);
+                    long gemeinsam = Files.size(prompt) + Files.size(tcd.tcd());
+                    ohne = gemeinsam + Files.size(voll);
+                    mit = gemeinsam + Files.size(aus.datei()) + Files.size(vpDatei);
+                    Files.deleteIfExists(aus.datei());
+                    ersparnis = prozent(ohne, mit);
+                }
+            }
+        } catch (IOException | RuntimeException ex) {
+            ersparnis = -1;
+        }
+        meldung.accept(OK + " " + I18n.t("status.kurzFertig", bericht.getFileName(),
+                vp.anzahl(Vorpruefung.Art.FEHLER), vp.anzahl(Vorpruefung.Art.HINWEIS),
+                vp.anzahl(Vorpruefung.Art.ANMERKUNG), vp.routenGeprueft()));
+        if (ersparnis > 0) {
+            meldung.accept(OK + " " + I18n.t("status.ersparnis", ersparnis, mit / 1024, ohne / 1024));
+        }
+        return new Kurz(bericht, vpDatei, vp, ersparnis, mit / 1024, ohne / 1024);
     }
 
     /** Ordner der Dokumente für das Menü "Ansichten" nach "Aktualisieren" (im Arbeitsordner). */
@@ -179,7 +327,7 @@ public final class Zusammenstellung {
                     false);
         }
         melde.accept(new Status(OK, I18n.t("status.dokumenteFertig", texte.size(), ordner)));
-        return new Ergebnis(dateien, "", ordner, status, texte, a, null);
+        return new Ergebnis(dateien, "", ordner, status, texte, a, null, null);
     }
 
     /** Ergebnis von {@link #dokumente} (nicht von einer Zusammenstellung). */
@@ -355,6 +503,14 @@ public final class Zusammenstellung {
             Files.deleteIfExists(t.datei());
         }
         int i = dateien.indexOf(t.datei());
+        if (i < 0 && t.art() == Bearbeitet.Art.HANDBUCH) {
+            // Statt des Auszugs geht dann die bearbeitete vollständige Fassung in den Chat.
+            for (int j = 0; j < dateien.size(); j++) {
+                if (dateien.get(j).getFileName().toString().endsWith("_Auszug.txt")) {
+                    i = j;
+                }
+            }
+        }
         if (i >= 0) {
             dateien.set(i, ziel);
         } else {
@@ -393,11 +549,12 @@ public final class Zusammenstellung {
         }
         texte.set(texte.indexOf(t), neu);
         if (nurDokumente(e)) {
-            return new Ergebnis(dateien, "", e.ordner(), status, texte, e.auftrag(), e.forumDatei());
+            return new Ergebnis(dateien, "", e.ordner(), status, texte, e.auftrag(), e.forumDatei(), e.pruefbericht());
         }
         String nachricht = nachricht(e.auftrag(), texte, e.forumDatei());
         Files.writeString(e.ordner().resolve(NACHRICHT_DATEI), nachricht + "\n", StandardCharsets.UTF_8);
-        return new Ergebnis(dateien, nachricht, e.ordner(), status, texte, e.auftrag(), e.forumDatei());
+        return new Ergebnis(dateien, nachricht, e.ordner(), status, texte, e.auftrag(), e.forumDatei(),
+                e.pruefbericht());
     }
 
     private static String mb(long bytes) {

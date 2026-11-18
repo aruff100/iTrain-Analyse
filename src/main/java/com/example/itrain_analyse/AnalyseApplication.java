@@ -62,6 +62,13 @@ public class AnalyseApplication extends Application {
     private CheckBox zugtabelle;
     private CheckBox bahnsteige;
     private CheckBox signale;
+    // Kurzprüfung ohne KI und Schritte zur KI-Analyse in eigenen Fenstern (Anwender 18.11.2026)
+    private Label ablauf;
+    private Button kurzStart;
+    private Zusammenstellung.Kurz letzteKurz;
+    /** Das gerade offene Schrittfenster und sein Fortschrittsfeld (Meldungen gehen auch dorthin). */
+    private Stage schritt;
+    private TextArea schrittProtokoll;
     private Label auftragLabel;
     private TextArea auftragFeld;
     private Label auftragHinweis;
@@ -103,7 +110,9 @@ public class AnalyseApplication extends Application {
     public void start(Stage stage) {
         this.stage = stage;
         ErsterStartDialog.beiBedarf();
-        scene = new Scene(new StackPane(), 900, 860);
+        // Größer als bisher, aber nie größer als der Bildschirm (Anwender 18.11.2026).
+        javafx.geometry.Rectangle2D bild = javafx.stage.Screen.getPrimary().getVisualBounds();
+        scene = new Scene(new StackPane(), Math.min(960, bild.getWidth() * 0.95), Math.min(760, bild.getHeight() * 0.95));
         stage.setScene(scene);
         stage.setOnCloseRequest(e -> speichern());
         aufbauen();
@@ -142,6 +151,14 @@ public class AnalyseApplication extends Application {
         zugtabelle = new CheckBox(I18n.t("feld.zugtabelle"));
         bahnsteige = new CheckBox(I18n.t("feld.bahnsteige"));
         signale = new CheckBox(I18n.t("feld.signale"));
+        // Hauptfenster: nur Kenntnisstand, Layout-Datei und der Start; alles Weitere in Schrittfenstern.
+        ablauf = new Label(I18n.t("haupt.ablauf"));
+        ablauf.setWrapText(true);
+        ablauf.setMinHeight(Region.USE_PREF_SIZE);
+        kurzStart = Oberflaeche.farbe(new Button("▶  " + I18n.t("knopf.kurzpruefung")), Oberflaeche.GRUEN);
+        kurzStart.setStyle(kurzStart.getStyle() + " -fx-font-size: 15px; -fx-font-weight: bold; -fx-padding: 8 18;");
+        kurzStart.setDefaultButton(true);
+        kurzStart.setOnAction(e -> kurzpruefung());
         // Eigener Auftrag an die KI, z. B. ein Relais oder den Ablauf einer Aktion untersuchen (Anwender 16.11.2026).
         auftragLabel = new Label(I18n.t("feld.auftrag"));
         auftragLabel.setWrapText(true);
@@ -184,14 +201,13 @@ public class AnalyseApplication extends Application {
         gitter.getColumnConstraints().addAll(c0, c1, new ColumnConstraints());
 
         start = Oberflaeche.farbe(new Button(I18n.t("knopf.zusammenstellen")), Oberflaeche.GRUEN);
-        start.setDefaultButton(true);
         ergebnisZeigen = Oberflaeche.farbe(new Button(I18n.t("knopf.ergebnis")), Oberflaeche.BLAU);
         oeffnen = Oberflaeche.farbe(new Button(I18n.t("knopf.ordnerOeffnen")), Oberflaeche.TUERKIS);
         anleitung = Oberflaeche.farbe(new Button(I18n.t("knopf.anleitung")), Oberflaeche.ORANGE);
         anleitung.setOnAction(e -> AnfaengerDialog.zeige(stage));
         anleitung.visibleProperty().bind(anfaenger.selectedProperty());
         anleitung.managedProperty().bind(anfaenger.selectedProperty());
-        HBox knoepfe = new HBox(8, start, ergebnisZeigen, oeffnen, anleitung);
+        HBox knoepfe = new HBox(8, ergebnisZeigen, oeffnen, anleitung);
         protokoll = new TextArea();
         protokoll.setEditable(false);
         protokoll.setWrapText(true);
@@ -207,8 +223,19 @@ public class AnalyseApplication extends Application {
         symbol.visibleProperty().bind(protokoll.textProperty().isEmpty());
         StackPane protokollFeld = new StackPane(protokoll, symbol);
         VBox.setVgrow(protokollFeld, Priority.ALWAYS);
-        VBox mitte = new VBox(10, gitter, knoepfe, fortschritt, protokollFeld);
-        mitte.setPadding(new Insets(12));
+        // Das Formular rollt, wenn der Platz nicht reicht; der Fortschritt bleibt immer sichtbar (Anwender 18.11.2026).
+        VBox formular = new VBox(10, gitter, knoepfe);
+        formular.setPadding(new Insets(12, 12, 0, 12));
+        javafx.scene.control.ScrollPane rollen = new javafx.scene.control.ScrollPane(formular);
+        rollen.setFitToWidth(true);
+        rollen.setStyle("-fx-background-color: transparent; -fx-background-insets: 0;");
+        protokollFeld.setMinHeight(170);
+        VBox unten = new VBox(6, fortschritt, protokollFeld);
+        unten.setPadding(new Insets(0, 12, 12, 12));
+        VBox.setVgrow(protokollFeld, Priority.ALWAYS);
+        javafx.scene.control.SplitPane mitte = new javafx.scene.control.SplitPane(rollen, unten);
+        mitte.setOrientation(javafx.geometry.Orientation.VERTICAL);
+        mitte.setDividerPositions(0.42);
 
         BorderPane wurzel = new BorderPane();
         wurzel.setTop(new VBox(menue(), modusZeile));
@@ -266,7 +293,6 @@ public class AnalyseApplication extends Application {
             }
         });
 
-        start.setOnAction(e -> zusammenstellen());
         ergebnisZeigen.setOnAction(e -> {
             if (letztes != null) {
                 ErgebnisFenster.zeige(stage, letztes, letztesLayout);
@@ -404,8 +430,8 @@ public class AnalyseApplication extends Application {
     }
 
     /**
-     * Füllt das Formular je nach Kenntnisstand. Anfänger: nur Layout-Datei, Prompt-Sprache, .tcd.xml und ein Hinweis;
-     * Direktmodus, Zusätze und Forumsbeitrag entfallen (Anwender 04.11.2026).
+     * Hauptfenster (Anwender 18.11.2026): Layout-Datei und der Knopf "Kurzprüfung starten". Prompt-Sprache,
+     * Direktmodus, Zusätze, eigener Auftrag und Forumsbeitrag fragen die Schrittfenster nacheinander ab.
      */
     private void gitterFuellen() {
         gitter.getChildren().clear();
@@ -413,32 +439,238 @@ public class AnalyseApplication extends Application {
         gitter.addRow(z++, new Label(I18n.t("feld.layout")), layout, andereKnopf);
         // "Neu einlesen" linksbündig unter der Liste (Anwender 16.11.2026)
         gitter.add(neuLadenKnopf, 1, z++);
-        gitter.addRow(z++, new Label(I18n.t("feld.promptSprache")), gruppe);
-        gitter.add(alsXml, 1, z++, 2, 1);
+        gitter.add(Oberflaeche.linie3d(), 0, z++, 3, 1);
+        gitter.add(ablauf, 0, z++, 3, 1);
+        gitter.add(kurzStart, 1, z++, 2, 1);
         if (anfaenger.isSelected()) {
             gitter.add(anfHinweis, 1, z++, 2, 1);
-            return;
         }
-        gitter.add(Oberflaeche.linie3d(), 0, z++, 3, 1);
-        gitter.add(direkt, 1, z++, 2, 1);
-        gitter.addRow(z++, new Label(I18n.t("feld.sprache")), sprache);
-        gitter.addRow(z++, new Label(I18n.t("feld.format")), format);
-        gitter.add(zugtabelle, 1, z++, 2, 1);
-        gitter.add(bahnsteige, 1, z++, 2, 1);
-        gitter.add(signale, 1, z++, 2, 1);
-        gitter.add(Oberflaeche.linie3d(), 0, z++, 3, 1);
-        gitter.add(auftragLabel, 0, z);
-        gitter.add(auftragFeld, 1, z++, 2, 1);
+    }
+
+    // ---------------------------------------------------------------- Schrittfenster
+
+    private static Label absatz(String text) {
+        Label l = new Label(text);
+        l.setWrapText(true);
+        l.setMinHeight(Region.USE_PREF_SIZE);
+        return l;
+    }
+
+    private static Label ueberschrift(String text, int groesse) {
+        Label l = new Label(text);
+        l.setWrapText(true);
+        l.setMinHeight(Region.USE_PREF_SIZE);
+        l.setStyle("-fx-font-weight: bold; -fx-font-size: " + groesse + "px;");
+        return l;
+    }
+
+    private static Region luecke() {
+        Region r = new Region();
+        HBox.setHgrow(r, Priority.ALWAYS);
+        return r;
+    }
+
+    /** Öffnet ein Schrittfenster (ersetzt das vorige) mit Inhalt und Knopfleiste. */
+    private Stage zeigeSchritt(String titel, javafx.scene.Node inhalt, HBox knoepfe, double breite, double hoehe) {
+        if (schritt != null) {
+            schritt.close();
+        }
+        Stage st = new Stage();
+        st.initOwner(stage);
+        st.initModality(javafx.stage.Modality.WINDOW_MODAL);
+        st.setTitle(titel);
+        javafx.scene.control.ScrollPane sp = new javafx.scene.control.ScrollPane(inhalt);
+        sp.setFitToWidth(true);
+        sp.setFitToHeight(true);
+        knoepfe.setPadding(new Insets(10, 16, 12, 16));
+        knoepfe.setAlignment(Pos.CENTER_LEFT);
+        BorderPane w = new BorderPane(sp);
+        w.setBottom(knoepfe);
+        javafx.geometry.Rectangle2D bild = javafx.stage.Screen.getPrimary().getVisualBounds();
+        Scene sc = new Scene(w, Math.min(breite, bild.getWidth() * 0.95), Math.min(hoehe, bild.getHeight() * 0.95));
+        Farben.anwenden(sc);
+        st.setScene(sc);
+        st.setOnHidden(e -> {
+            if (schritt == st) {
+                schritt = null;
+                schrittProtokoll = null;
+            }
+        });
+        schritt = st;
+        st.show();
+        return st;
+    }
+
+    private static VBox inhalt(javafx.scene.Node... teile) {
+        VBox v = new VBox(10, teile);
+        v.setPadding(new Insets(16));
+        return v;
+    }
+
+    /** Fenster 1: Ergebnis der Kurzprüfung mit Erklärung, Drucken, "Fertig" oder "Weiter zur KI-Analyse". */
+    private void kurzFenster(Zusammenstellung.Kurz k) {
+        Vorpruefung.Ergebnis e = k.ergebnis();
+        Label titel = ueberschrift(I18n.t("kurz.titel") + ": " + letztesLayout, 18);
+        Label ergebnis = ueberschrift(I18n.t("kurz.ergebnis", e.anzahl(Vorpruefung.Art.FEHLER),
+                e.anzahl(Vorpruefung.Art.HINWEIS), e.anzahl(Vorpruefung.Art.ANMERKUNG), e.routenGeprueft()), 14);
+        TextArea befunde = new TextArea(Vorpruefung.uebersicht(e));
+        befunde.setEditable(false);
+        befunde.setWrapText(true);
+        befunde.setPrefRowCount(16);
+        befunde.setStyle("-fx-font-family: 'monospaced';");
+        VBox.setVgrow(befunde, Priority.ALWAYS);
+        Label ersparnis = ueberschrift(k.ersparnis() > 0
+                ? I18n.t("kurz.ersparnis", k.ersparnis(), k.mitKb(), k.ohneKb())
+                : I18n.t("kurz.ersparnisUnbekannt"), 12);
+        VBox v = inhalt(titel,
+                ueberschrift(I18n.t("kurz.h.was"), 14), absatz(I18n.t("kurz.wasGeprueft")),
+                ueberschrift(I18n.t("kurz.h.ergebnis"), 14), ergebnis, befunde,
+                ueberschrift(I18n.t("kurz.h.ki"), 14), absatz(I18n.t("kurz.wasKi")),
+                ueberschrift(I18n.t("kurz.h.token"), 14), absatz(I18n.t("kurz.token")), ersparnis,
+                Oberflaeche.linie3d(), absatz(I18n.t("kurz.wieWeiter")));
+        Button drucken = Oberflaeche.farbe(new Button("🖨  " + I18n.t("knopf.drucken")), Oberflaeche.LILA);
+        drucken.setOnAction(x -> Pruefbericht.drucken(schritt, k.pruefbericht()));
+        Button pdf = Oberflaeche.farbe(new Button("📄  " + I18n.t("knopf.berichtAnsehen")), Oberflaeche.TUERKIS);
+        pdf.setOnAction(x -> Oberflaeche.oeffne(k.pruefbericht().toFile(), null, false));
+        Button fertig = Oberflaeche.farbe(new Button(I18n.t("knopf.fertig")), Oberflaeche.ROSA);
+        Button weiter = Oberflaeche.farbe(new Button(I18n.t("knopf.weiterKi") + "  ▶"), Oberflaeche.GRUEN);
+        weiter.setDefaultButton(true);
+        weiter.setOnAction(x -> kiFenster());
+        fertig.setOnAction(x -> {
+            // Die Kurzprüfung ist oberflächlich und kann Fehler machen (Anwender 18.11.2026).
+            if (frage(I18n.t("dialog.kurzFertig.titel"), I18n.t("dialog.kurzFertig.text"), I18n.t("knopf.dochKi"),
+                    I18n.t("knopf.beenden"))) {
+                kiFenster();
+            } else {
+                schritt.close();
+            }
+        });
+        zeigeSchritt(I18n.t("kurz.titel") + " – " + letztesLayout, v,
+                new HBox(8, drucken, pdf, luecke(), fertig, weiter), 980, 1000);
+    }
+
+    private int schritte() {
+        return anfaenger.isSelected() ? 2 : 3;
+    }
+
+    /** Fenster 2: Prompt-Sprache, Direktmodus, Sprache, Format, Zusätze. */
+    private void kiFenster() {
+        GridPane g = raster();
+        int z = 0;
+        g.addRow(z++, new Label(I18n.t("feld.promptSprache")), gruppe);
+        g.add(alsXml, 1, z++, 2, 1);
+        if (anfaenger.isSelected()) {
+            g.add(anfHinweis, 1, z++, 2, 1);
+            Button a = Oberflaeche.farbe(new Button(I18n.t("knopf.anleitung")), Oberflaeche.ORANGE);
+            a.setOnAction(x -> AnfaengerDialog.zeige(schritt));
+            g.add(a, 1, z, 2, 1);
+        } else {
+            g.add(Oberflaeche.linie3d(), 0, z++, 3, 1);
+            g.add(direkt, 1, z++, 2, 1);
+            g.addRow(z++, new Label(I18n.t("feld.sprache")), sprache);
+            g.addRow(z++, new Label(I18n.t("feld.format")), format);
+            g.add(zugtabelle, 1, z++, 2, 1);
+            g.add(bahnsteige, 1, z++, 2, 1);
+            g.add(signale, 1, z, 2, 1);
+        }
+        VBox v = inhalt(ueberschrift(I18n.t("ki.titel"), 18),
+                absatz(I18n.t("ki.schritt", 1, schritte(), I18n.t("ki.s1"))), absatz(I18n.t("ki.einleitung1")),
+                Oberflaeche.linie3d(), g);
+        Button abbruch = Oberflaeche.farbe(new Button(I18n.t("knopf.abbrechen")), Oberflaeche.ROSA);
+        abbruch.setOnAction(x -> schritt.close());
+        Button weiter = Oberflaeche.farbe(new Button(I18n.t("knopf.weiter") + "  ▶"), Oberflaeche.GRUEN);
+        weiter.setDefaultButton(true);
+        weiter.setOnAction(x -> {
+            speichern();
+            if (anfaenger.isSelected()) {
+                zusammenFenster();
+            } else {
+                auftragFenster();
+            }
+        });
+        zeigeSchritt(I18n.t("ki.titel") + " – " + letztesLayout, v, new HBox(8, abbruch, luecke(), weiter), 860, 720);
+    }
+
+    /** Fenster 3: eigener Auftrag an die KI und Forumsbeitrag. */
+    private void auftragFenster() {
+        GridPane g = raster();
+        int z = 0;
+        g.add(auftragLabel, 0, z);
+        g.add(auftragFeld, 1, z++, 2, 1);
         GridPane.setValignment(auftragLabel, javafx.geometry.VPos.TOP);
-        gitter.add(auftragHinweis, 1, z++, 2, 1);
-        gitter.add(Oberflaeche.linie3d(), 0, z++, 3, 1);
-        gitter.add(forum, 1, z++, 2, 1);
-        gitter.addRow(z++, forumUrlLabel, forumUrl);
+        g.add(auftragHinweis, 1, z++, 2, 1);
+        g.add(Oberflaeche.linie3d(), 0, z++, 3, 1);
+        g.add(forum, 1, z++, 2, 1);
+        g.addRow(z++, forumUrlLabel, forumUrl);
         GridPane.setColumnSpan(forumUrl, 2);
-        gitter.add(forumHinweis, 1, z++, 2, 1);
-        gitter.add(forumTextLabel, 0, z);
-        gitter.add(forumText, 1, z, 2, 1);
+        g.add(forumHinweis, 1, z++, 2, 1);
+        g.add(forumTextLabel, 0, z);
+        g.add(forumText, 1, z, 2, 1);
         GridPane.setValignment(forumTextLabel, javafx.geometry.VPos.TOP);
+        VBox v = inhalt(ueberschrift(I18n.t("ki.titel"), 18),
+                absatz(I18n.t("ki.schritt", 2, schritte(), I18n.t("ki.s2"))), absatz(I18n.t("ki.einleitung2")),
+                Oberflaeche.linie3d(), g);
+        Button abbruch = Oberflaeche.farbe(new Button(I18n.t("knopf.abbrechen")), Oberflaeche.ROSA);
+        abbruch.setOnAction(x -> schritt.close());
+        Button weiter = Oberflaeche.farbe(new Button(I18n.t("knopf.weiter") + "  ▶"), Oberflaeche.GRUEN);
+        weiter.setDefaultButton(true);
+        weiter.setOnAction(x -> {
+            speichern();
+            zusammenFenster();
+        });
+        zeigeSchritt(I18n.t("ki.titel") + " – " + letztesLayout, v, new HBox(8, abbruch, luecke(), weiter), 900, 760);
+    }
+
+    /**
+     * Letztes Fenster: "Zusammenstellen" füllt nur den Ordner und den Fortschritt; "Ausführen" legt das Paket in
+     * die Zwischenablage und öffnet das Fenster für den Chat.
+     */
+    private void zusammenFenster() {
+        TextArea p = new TextArea();
+        p.setEditable(false);
+        p.setWrapText(true);
+        p.setStyle("-fx-font-family: 'monospaced';");
+        VBox.setVgrow(p, Priority.ALWAYS);
+        Button ordner = Oberflaeche.farbe(new Button(I18n.t("knopf.ordnerOeffnen")), Oberflaeche.TUERKIS);
+        ordner.setOnAction(x -> {
+            Path o = letztes != null ? letztes.ordner() : Einstellungen.arbeitsordner();
+            Oberflaeche.oeffne(o.toFile(), null, false);
+        });
+        HBox oben = new HBox(8, start, ordner);
+        VBox v = inhalt(ueberschrift(I18n.t("ki.titel"), 18),
+                absatz(I18n.t("ki.schritt", schritte(), schritte(), I18n.t("ki.s3"))),
+                absatz(I18n.t("ki.einleitung3")), oben, new Label(I18n.t("feld.fortschritt")), p);
+        Button abbruch = Oberflaeche.farbe(new Button(I18n.t("knopf.abbrechen")), Oberflaeche.ROSA);
+        abbruch.setOnAction(x -> schritt.close());
+        Button ausfuehren = Oberflaeche.farbe(new Button(I18n.t("knopf.ausfuehren") + "  ▶"), Oberflaeche.GRUEN);
+        ausfuehren.setDisable(true);
+        ausfuehren.setOnAction(x -> {
+            if (letztes != null) {
+                zwischenablage(letztes);
+                schritt.close();
+                ErgebnisFenster.zeige(stage, letztes, letztesLayout);
+            }
+        });
+        start.setDisable(false);
+        start.setOnAction(x -> zusammenstellen(() -> {
+            ausfuehren.setDisable(false);
+            ausfuehren.setDefaultButton(true);
+        }));
+        zeigeSchritt(I18n.t("ki.titel") + " – " + letztesLayout, v, new HBox(8, abbruch, luecke(), ausfuehren),
+                900, 780);
+        schrittProtokoll = p;
+    }
+
+    private static GridPane raster() {
+        GridPane g = new GridPane();
+        g.setHgap(8);
+        g.setVgap(8);
+        ColumnConstraints c1 = new ColumnConstraints();
+        c1.setHgrow(Priority.ALWAYS);
+        ColumnConstraints c0 = new ColumnConstraints();
+        c0.setMinWidth(Region.USE_PREF_SIZE);
+        g.getColumnConstraints().addAll(c0, c1, new ColumnConstraints());
+        return g;
     }
 
     private void sprachenSetzen() {
@@ -462,7 +694,9 @@ public class AnalyseApplication extends Application {
     }
 
     private boolean frage(String titel, String text, String ja, String nein) {
-        return Oberflaeche.frage(stage, titel, text, ja, nein);
+        // Rückfragen gehören zum offenen Schrittfenster, damit es nicht hinter das Hauptfenster rutscht.
+        Stage owner = schritt != null ? schritt : stage;
+        return Oberflaeche.frage(owner, titel, text, ja, nein);
     }
 
     // ---------------------------------------------------------------- Prüfung beim Start
@@ -581,7 +815,7 @@ public class AnalyseApplication extends Application {
                 Einstellungen.docsOrdner(), Einstellungen.arbeitsordner(), false, direkt.isSelected() && !anf,
                 sprache.getValue(), false, false, !anf, format.getValue(), "", "", "",
                 Einstellungen.handbuchAdresse(),
-                HandbuchSprache.aus(Einstellungen.get(Einstellungen.HANDBUCH_SPRACHE, "")));
+                HandbuchSprache.aus(Einstellungen.get(Einstellungen.HANDBUCH_SPRACHE, "")), false, false);
         ansichtAktualisieren.setDisable(true);
         Thread t = new Thread(() -> {
             pruefung(true, false);
@@ -634,9 +868,11 @@ public class AnalyseApplication extends Application {
 
     // ---------------------------------------------------------------- Zusammenstellen
 
-    private void zusammenstellen() {
+    private void zusammenstellen(Runnable fertig) {
         speichern();
-        protokoll.clear();
+        if (schrittProtokoll != null) {
+            schrittProtokoll.clear();
+        }
         boolean anf = anfaenger.isSelected();
         String url = forumUrl.getText().trim();
         boolean mitText = !forumText.getText().isBlank();
@@ -653,7 +889,8 @@ public class AnalyseApplication extends Application {
                 format.getValue(), mitForum ? url : "", mitForum ? forumText.getText() : "",
                 anf ? "" : auftragFeld.getText(),
                 Einstellungen.handbuchAdresse(),
-                HandbuchSprache.aus(Einstellungen.get(Einstellungen.HANDBUCH_SPRACHE, "")));
+                HandbuchSprache.aus(Einstellungen.get(Einstellungen.HANDBUCH_SPRACHE, "")),
+                !anf, Einstellungen.getBool(Einstellungen.HANDBUCH_AUSZUG, true));
         Task<Zusammenstellung.Ergebnis> task = new Task<>() {
             @Override
             protected Zusammenstellung.Ergebnis call() throws IOException {
@@ -661,7 +898,10 @@ public class AnalyseApplication extends Application {
                         m -> Platform.runLater(() -> melde(m)));
             }
         };
-        task.setOnSucceeded(e -> fertig(task.getValue()));
+        task.setOnSucceeded(e -> {
+            fertig(task.getValue());
+            fertig.run();
+        });
         task.setOnFailed(e -> {
             Throwable t = task.getException();
             if (!(t instanceof Zusammenstellung.Abbruch)) {
@@ -679,15 +919,52 @@ public class AnalyseApplication extends Application {
         th.start();
     }
 
+    /** Kurzprüfung ohne KI: Prüfbericht für die gewählte Layout-Datei (Anwender 18.11.2026). */
+    private void kurzpruefung() {
+        speichern();
+        protokoll.clear();
+        boolean anf = anfaenger.isSelected();
+        letztesLayout = layout.getValue() == null ? "" : layout.getValue().getFileName().toString();
+        // Sprache des Prüfberichts nach der Oberfläche: Deutsch für de und nl, sonst Englisch.
+        boolean deutsch = List.of("de", "nl").contains(I18n.sprache());
+        Zusammenstellung.Auftrag a = new Zusammenstellung.Auftrag(layout.getValue(),
+                deutsch ? Sprachgruppe.DE_NL : Sprachgruppe.EN_FR_ES_IT,
+                Einstellungen.docsOrdner(), Einstellungen.arbeitsordner(), false, direkt.isSelected() && !anf,
+                sprache.getValue(), true, true, false, format.getValue(), "", "", "",
+                Einstellungen.handbuchAdresse(),
+                HandbuchSprache.aus(Einstellungen.get(Einstellungen.HANDBUCH_SPRACHE, "")), true,
+                Einstellungen.getBool(Einstellungen.HANDBUCH_AUSZUG, true));
+        kurzStart.setDisable(true);
+        Task<Zusammenstellung.Kurz> task = new Task<>() {
+            @Override
+            protected Zusammenstellung.Kurz call() throws IOException {
+                return Zusammenstellung.kurzpruefung(a, m -> Platform.runLater(() -> melde(m)));
+            }
+        };
+        task.setOnSucceeded(e -> {
+            letzteKurz = task.getValue();
+            kurzStart.setDisable(false);
+            kurzFenster(letzteKurz);
+        });
+        task.setOnFailed(e -> {
+            kurzStart.setDisable(false);
+            Throwable ex = task.getException();
+            melde(Zusammenstellung.FEHLT + " " + I18n.t("status.fehler",
+                    ex == null || ex.getMessage() == null ? String.valueOf(ex) : ex.getMessage()));
+        });
+        Thread th = new Thread(task, "kurzpruefung");
+        th.setDaemon(true);
+        th.start();
+    }
+
+    /** Zusammengestellt: Ordner und Fortschritt sind gefüllt; Zwischenablage und Chat-Fenster erst bei "Ausführen". */
     private void fertig(Zusammenstellung.Ergebnis e) {
         letztes = e;
         ansichtQuelle = e;
-        zwischenablage(e);
         start.setDisable(false);
         ergebnisZeigen.setDisable(false);
         oeffnen.setDisable(false);
         ansichtenSchalten();
-        ErgebnisFenster.zeige(stage, e, letztesLayout);
     }
 
     /** Dateien und Nachrichtentext in die Zwischenablage; bearbeitete Texte werden im Protokoll genannt. */
@@ -750,6 +1027,9 @@ public class AnalyseApplication extends Application {
     private void melde(String text) {
         if (protokoll != null) {
             protokoll.appendText(text + "\n");
+        }
+        if (schrittProtokoll != null) {
+            schrittProtokoll.appendText(text + "\n");
         }
     }
 }

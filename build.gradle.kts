@@ -11,7 +11,7 @@ plugins {
 }
 
 group = "com.example"
-version = "1.3"
+version = "1.4"
 
 repositories {
     mavenCentral()
@@ -65,7 +65,10 @@ tasks.register("promptManifest") {
         val sb = StringBuilder("# Prompt-Dateien fuer iTrain-Analyse. Erzeugt von \"gradlew promptManifest\" - nicht von Hand aendern.\n")
         for ((key, praefix) in gruppen) {
             val datei = dir.listFiles { f -> f.name.startsWith(praefix) && f.name.endsWith(".txt") }
-                ?.maxByOrNull { it.lastModified() }
+                ?.maxWithOrNull(compareBy<java.io.File> { f ->
+                    // Neueste Fassung nach der Versionsnummer im Dateinamen, nicht nach dem Dateidatum.
+                    Regex("_v([0-9]+)\\.([0-9]+)").find(f.name)?.groupValues?.let { it[1].toInt() * 1000 + it[2].toInt() } ?: -1
+                })
                 ?: throw GradleException("Keine Datei $praefix*.txt in $dir")
             val md = MessageDigest.getInstance("SHA-256")
             val hex = md.digest(datei.readBytes()).joinToString("") { "%02x".format(it) }

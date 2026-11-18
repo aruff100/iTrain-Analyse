@@ -46,6 +46,8 @@ public final class VoreinstellungenDialog {
         hbSprache.getItems().setAll(HandbuchSprache.values());
         hbSprache.setValue(HandbuchSprache.aus(Einstellungen.get(Einstellungen.HANDBUCH_SPRACHE, "")));
         TextField arbeit = feld(Einstellungen.arbeitsordner().toString());
+        javafx.scene.control.CheckBox auszug = new javafx.scene.control.CheckBox(I18n.t("vor.handbuchAuszug"));
+        auszug.setSelected(Einstellungen.getBool(Einstellungen.HANDBUCH_AUSZUG, true));
         promptAdresse.disableProperty().bind(ordner.selectedProperty());
         promptOrdner.disableProperty().bind(server.selectedProperty());
 
@@ -61,7 +63,9 @@ public final class VoreinstellungenDialog {
         pfade.add(Oberflaeche.linie3d(), 0, z++, 3, 1);
         pfade.addRow(z++, new Label(I18n.t("vor.handbuchAdresse")), adresse);
         pfade.addRow(z++, new Label(I18n.t("vor.handbuchSprache")), hbSprache);
-        pfade.add(hinweis(I18n.t("vor.handbuchHinweis")), 0, z, 3, 1);
+        pfade.add(hinweis(I18n.t("vor.handbuchHinweis")), 0, z++, 3, 1);
+        pfade.add(auszug, 1, z++, 2, 1);
+        pfade.add(hinweis(I18n.t("vor.handbuchAuszugHinweis")), 1, z, 2, 1);
 
         GridPane arbeitsTab = raster();
         arbeitsTab.addRow(0, new Label(I18n.t("vor.arbeitsordner")), arbeit, waehlen(owner, arbeit));
@@ -108,6 +112,7 @@ public final class VoreinstellungenDialog {
         Einstellungen.set(Einstellungen.DOCS_ORDNER, docs.getText().trim());
         Einstellungen.set(Einstellungen.HANDBUCH_ADRESSE, adresse.getText().trim());
         Einstellungen.set(Einstellungen.HANDBUCH_SPRACHE, hbSprache.getValue().name());
+        Einstellungen.setBool(Einstellungen.HANDBUCH_AUSZUG, auszug.isSelected());
         Einstellungen.set(Einstellungen.ARBEITSORDNER, arbeit.getText().trim());
         Einstellungen.set(Einstellungen.FARBEN, dunkel.isSelected() ? "dunkel" : "hell");
         Einstellungen.set(Einstellungen.UI_SPRACHE, ui.getValue() == null ? "" : ui.getValue());

@@ -15,6 +15,10 @@ public final class Einstellungen {
     public static final String ARBEITSORDNER = "arbeitsordner";
     public static final String HANDBUCH_ADRESSE = "handbuchAdresse";
     public static final String HANDBUCH_SPRACHE = "handbuchSprache";
+    /** Nur die benötigten Handbuchseiten in den Chat geben (Anwender 18.11.2026); Vorgabe ja. */
+    public static final String HANDBUCH_AUSZUG = "handbuchAuszug";
+    /** Prüfbericht des Programms als PDF ohne KI (Variante B, Anwender 18.11.2026). */
+    public static final String PRUEFBERICHT = "pruefbericht";
     public static final String FARBEN = "farben";
     public static final String MODUS = "modus";
     public static final String UI_SPRACHE = "uiSprache";
