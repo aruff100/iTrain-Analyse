@@ -264,9 +264,14 @@ public final class Vorpruefung {
         a.melder.forEach(m -> mi.put(m.name(), m));
         List<String> falscherTyp = new ArrayList<>();
         Set<String> imBlock = new HashSet<>();
+        Map<String, List<String>> bloeckeJeMelder = new LinkedHashMap<>();
         for (Anlage.Block b : a.bloecke.values()) {
             for (Anlage.BlockMelder bm : b.melder()) {
                 imBlock.add(bm.name());
+                List<String> bl = bloeckeJeMelder.computeIfAbsent(bm.name(), k -> new ArrayList<>());
+                if (!bl.contains(b.name())) {
+                    bl.add(b.name());
+                }
                 Anlage.Melder m = mi.get(bm.name());
                 if (m != null && m.typ() != null && !m.typ().equals("occupancy")) {
                     falscherTyp.add(bm.name() + " (" + b.name() + ", " + m.typ() + ")");
@@ -279,11 +284,38 @@ public final class Vorpruefung {
                             "These feedbacks are assigned to a block but are not of the occupancy type: ")
                             + liste(falscherTyp) + ".", "S. 93, S. 115", false, null);
         }
+        List<String> freieBelegtmelder = a.melder.stream()
+                .filter(m -> !imBlock.contains(m.name()) && (m.typ() == null || m.typ().equals("occupancy")))
+                .map(Anlage.Melder::name).toList();
+        List<List<String>> mehrfach = new ArrayList<>();
+        bloeckeJeMelder.forEach((m, bl) -> {
+            if (bl.size() > 1) {
+                mehrfach.add(List.of(m, String.join(", ", bl)));
+            }
+        });
+        if (!mehrfach.isEmpty()) {
+            befund(2, Art.FEHLER, t("Rückmelder in mehreren Blöcken", "Feedback in several blocks"),
+                    t("Diese Rückmelder sind mehreren Blöcken zugeordnet. Wird der Rückmelder belegt, melden alle "
+                            + "diese Blöcke belegt, und iTrain kann den Zug nicht eindeutig zuordnen. Vermutlich ist "
+                            + "in einem der Blöcke der falsche Rückmelder eingetragen.",
+                            "These feedbacks are assigned to several blocks. When the feedback is occupied, all "
+                                    + "these blocks report occupied and iTrain cannot place the train. Probably the "
+                                    + "wrong feedback is entered in one of the blocks.")
+                            + (freieBelegtmelder.isEmpty() ? ""
+                                    : t(" Keinem Block zugeordnete Belegtmelder (vielleicht der gemeinte): ",
+                                            " Occupancy feedbacks not assigned to any block (perhaps the intended "
+                                                    + "one): ") + liste(freieBelegtmelder) + "."),
+                    "S. 115", false, new Tabelle(List.of(t("Rückmelder", "Feedback"), t("Blöcke", "Blocks")),
+                            mehrfach));
+        }
         long ohneBlock = a.melder.stream().filter(m -> !imBlock.contains(m.name())).count();
         ohne.add(t("Rückmelder: Adressen und doppelte Adressen je Schnittstelle geprüft; " + ohneBlock
-                + " Rückmelder ohne Block (bei Tasten-, Weichen- oder Systemmeldern kein Fehler).",
+                + " Rückmelder ohne Block (bei Tasten-, Weichen- oder Systemmeldern kein Fehler)"
+                + (freieBelegtmelder.isEmpty() ? "" : ", davon Belegtmelder: " + liste(freieBelegtmelder)) + ".",
                 "Feedbacks: addresses and duplicate addresses per interface checked; " + ohneBlock
-                        + " feedbacks without block (no error for key, turnout or system feedbacks)."));
+                        + " feedbacks without block (no error for key, turnout or system feedbacks)"
+                        + (freieBelegtmelder.isEmpty() ? "" : ", of which occupancy feedbacks: "
+                                + liste(freieBelegtmelder)) + "."));
     }
 
     // --- Zubehör --------------------------------------------------------------------------------------------------
@@ -354,7 +386,7 @@ public final class Vorpruefung {
         List<String> ausreisser = new ArrayList<>();
         List<List<String>> summen = new ArrayList<>();
         List<String> positionen = new ArrayList<>();
-        List<String> einseitig = new ArrayList<>();
+        List<List<String>> einseitig = new ArrayList<>();
         List<String> unbekannt = new ArrayList<>();
         List<String> haltepunkte = new ArrayList<>();
         List<String> bahnsteigTyp = new ArrayList<>();
@@ -409,8 +441,14 @@ public final class Vorpruefung {
                         }
                     }
                     if (!zurueck) {
-                        einseitig.add(b.name() + " (" + seite(r.seite()) + ") → " + n.block()
-                                + (n.seite() == null ? "" : " (" + seite(n.seite()) + ")"));
+                        einseitig.add(List.of(b.name(), seite(r.seite()), n.block()
+                                + (n.seite() == null ? t(" (ohne Seite)", " (no side)") : " (" + seite(n.seite()) + ")"),
+                                n.seite() == null || n.seite().equals("both")
+                                        ? t(n.block() + " nennt " + b.name() + " in keiner Richtung",
+                                                n.block() + " does not name " + b.name() + " in any direction")
+                                        : t(n.block() + " nennt " + b.name() + " in Richtung " + seite(n.seite())
+                                                + " nicht", n.block() + " does not name " + b.name()
+                                                        + " in direction " + seite(n.seite()))));
                     }
                 }
                 if (l != null && l > 0) {
@@ -465,10 +503,15 @@ public final class Vorpruefung {
         }
         if (!einseitig.isEmpty()) {
             befund(2, Art.HINWEIS, t("Blockverbindung nur in einer Richtung", "Block connection in one direction only"),
-                    t("Block A nennt B als Nachbarn, B nennt A aber nicht (beide Formen von side-block gelesen): ",
-                            "Block A names B as neighbour, but B does not name A (both forms of side-block read): ")
-                            + liste(einseitig) + t(". Bei Drehscheiben vermutlich ohne Bedeutung.",
-                                    ". Probably irrelevant for turntables."), "S. 120", true, null);
+                    t("Ein Block nennt in einer Richtung einen Nachbarblock, der Nachbarblock nennt ihn aber nicht "
+                            + "zurück. Meist fehlt die Verbindung auf einer Seite oder führt zum falschen Block. Bei "
+                            + "Drehscheiben vermutlich ohne Bedeutung.",
+                            "A block names a neighbouring block in one direction, but the neighbour does not name it "
+                                    + "back. Usually the connection is missing on one side or leads to the wrong "
+                                    + "block. Probably irrelevant for turntables."), "S. 120", true,
+                    new Tabelle(List.of(t("Block", "Block"), t("Richtung", "Direction"),
+                            t("nennt als Nachbarn", "names as neighbour"), t("Gegenseite", "Other side")),
+                            einseitig));
         } else {
             ohne.add(t("Blockverbindungen: alle in beiden Richtungen stimmig.",
                     "Block connections: all consistent in both directions."));
@@ -486,11 +529,11 @@ public final class Vorpruefung {
             List<String> ausrichten = a.gattungen.values().stream()
                     .filter(g -> g.optionen().contains("platform_align")).map(Anlage.Gattung::name).toList();
             befund(2, Art.HINWEIS, t("Keine Bahnsteige eingetragen", "No platforms entered"),
-                    t("In der Datei ist kein Bahnsteig eingetragen (" + bahnhofsbloecke + " Bahnhofsblöcke). "
+                    t("In der Datei ist kein Bahnsteig eingetragen (" + bahnhofsbloecke + (bahnhofsbloecke == 1 ? " Bahnhofsblock). " : " Bahnhofsblöcke). ")
                             + "Ohne Bahnsteig halten Züge an der Stopp-Position, die Option \"Zug am Bahnsteig "
                             + "ausrichten\" der Zuggattung bleibt wirkungslos, und die Bahnsteigprüfung (Zusatz 2) "
                             + "kann keine Werte berechnen.",
-                            "No platform is entered in the file (" + bahnhofsbloecke + " station blocks). Without a "
+                            "No platform is entered in the file (" + bahnhofsbloecke + (bahnhofsbloecke == 1 ? " station block). Without a " : " station blocks). Without a ")
                             + "platform trains stop at the stop position, the train type option \"Align train at "
                             + "platform\" has no effect, and the platform check (extra 2) cannot calculate values.")
                             + (ausrichten.isEmpty() ? ""

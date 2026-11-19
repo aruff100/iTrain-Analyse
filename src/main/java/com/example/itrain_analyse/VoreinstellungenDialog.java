@@ -63,13 +63,13 @@ public final class VoreinstellungenDialog {
         pfade.add(Oberflaeche.linie3d(), 0, z++, 3, 1);
         pfade.addRow(z++, new Label(I18n.t("vor.handbuchAdresse")), adresse);
         pfade.addRow(z++, new Label(I18n.t("vor.handbuchSprache")), hbSprache);
-        pfade.add(hinweis(I18n.t("vor.handbuchHinweis")), 0, z++, 3, 1);
+        pfade.add(hinweis(I18n.t("vor.handbuchHinweis"), 720), 0, z++, 3, 1);
         pfade.add(auszug, 1, z++, 2, 1);
-        pfade.add(hinweis(I18n.t("vor.handbuchAuszugHinweis")), 1, z, 2, 1);
+        pfade.add(hinweis(I18n.t("vor.handbuchAuszugHinweis"), 520), 1, z, 2, 1);
 
         GridPane arbeitsTab = raster();
         arbeitsTab.addRow(0, new Label(I18n.t("vor.arbeitsordner")), arbeit, waehlen(owner, arbeit));
-        arbeitsTab.add(hinweis(I18n.t("vor.arbeitsordnerHinweis")), 0, 1, 3, 1);
+        arbeitsTab.add(hinweis(I18n.t("vor.arbeitsordnerHinweis"), 720), 0, 1, 3, 1);
 
         ToggleGroup tg = new ToggleGroup();
         RadioButton hell = new RadioButton(I18n.t("vor.hell"));
@@ -133,10 +133,17 @@ public final class VoreinstellungenDialog {
         }
     }
 
-    private static Label hinweis(String t) {
+    /**
+     * Hinweistext mit Zeilenumbruch. Über mehrere Spalten gespannte Labels bekommen im GridPane sonst nur eine
+     * Zeile Höhe und werden mit "…" abgeschnitten; feste Breite und Mindesthöhe = Wunschhöhe lassen den Dialog
+     * entsprechend länger werden (Anwender 19.11.2026).
+     */
+    private static Label hinweis(String t, double breite) {
         Label l = new Label(t);
         l.setWrapText(true);
-        l.setMaxWidth(720);
+        l.setPrefWidth(breite);
+        l.setMaxWidth(breite);
+        l.setMinHeight(javafx.scene.layout.Region.USE_PREF_SIZE);
         return l;
     }
 
@@ -153,7 +160,10 @@ public final class VoreinstellungenDialog {
         g.setPadding(new Insets(12));
         ColumnConstraints c1 = new ColumnConstraints();
         c1.setHgrow(Priority.ALWAYS);
-        g.getColumnConstraints().addAll(new ColumnConstraints(), c1, new ColumnConstraints());
+        // Beschriftungen ungekürzt, z. B. "iTrain-docs-Ordner (Release Notes)" (Anwender 19.11.2026)
+        ColumnConstraints c0 = new ColumnConstraints();
+        c0.setMinWidth(javafx.scene.layout.Region.USE_PREF_SIZE);
+        g.getColumnConstraints().addAll(c0, c1, new ColumnConstraints());
         return g;
     }
 

@@ -96,6 +96,8 @@ public class AnalyseApplication extends Application {
     private Zusammenstellung.Ergebnis letztes;
     /** Quelle des Menüs "Ansichten": die letzte Zusammenstellung oder die Dokumente nach "Aktualisieren". */
     private Zusammenstellung.Ergebnis ansichtQuelle;
+    /** Zusätze Zugtabelle, Bahnsteige, Signale: nur für diese Sitzung, bei jedem Start aus (Anwender 19.11.2026). */
+    private static final boolean[] zusaetzeGewaehlt = new boolean[3];
     /** Direktmodus ist bei jedem Start aus und wird nicht gespeichert (Anwender 03.11.2026). */
     private boolean direktGewaehlt;
     /** Forum-Beitrag und Adresse sind bei jedem Start leer und werden nicht gespeichert (Anwender 03.11.2026). */
@@ -224,7 +226,12 @@ public class AnalyseApplication extends Application {
         StackPane protokollFeld = new StackPane(protokoll, symbol);
         VBox.setVgrow(protokollFeld, Priority.ALWAYS);
         // Das Formular rollt, wenn der Platz nicht reicht; der Fortschritt bleibt immer sichtbar (Anwender 18.11.2026).
-        VBox formular = new VBox(10, gitter, knoepfe);
+        // Was die Kurzprüfung prüft, unter "Ergebnis anzeigen" (Anwender 19.11.2026; vorher im Fenster der Kurzprüfung).
+        Label wasTitel = ueberschrift(I18n.t("kurz.h.was"), 13);
+        Label wasText = absatz(I18n.t("kurz.wasGeprueft"));
+        Label wasSignale = absatz(I18n.t("kurz.signaleHinweis"));
+        wasSignale.setStyle("-fx-font-style: italic;");
+        VBox formular = new VBox(10, gitter, knoepfe, Oberflaeche.linie3d(), wasTitel, wasText, wasSignale);
         formular.setPadding(new Insets(12, 12, 0, 12));
         javafx.scene.control.ScrollPane rollen = new javafx.scene.control.ScrollPane(formular);
         rollen.setFitToWidth(true);
@@ -235,7 +242,7 @@ public class AnalyseApplication extends Application {
         VBox.setVgrow(protokollFeld, Priority.ALWAYS);
         javafx.scene.control.SplitPane mitte = new javafx.scene.control.SplitPane(rollen, unten);
         mitte.setOrientation(javafx.geometry.Orientation.VERTICAL);
-        mitte.setDividerPositions(0.42);
+        mitte.setDividerPositions(0.62);
 
         BorderPane wurzel = new BorderPane();
         wurzel.setTop(new VBox(menue(), modusZeile));
@@ -247,8 +254,9 @@ public class AnalyseApplication extends Application {
         gruppe.setOnAction(e -> sprachenSetzen());
         format.getItems().setAll(Sprachgruppe.FORMATE);
         direkt.setOnAction(e -> {
-            // Beim Einschalten sind alle Zusätze aus; der Anwender wählt sie selbst (Anwender 16.11.2026).
-            if (direkt.isSelected()) {
+            // Beim Ein- und Ausschalten sind alle Zusätze aus; der Anwender wählt sie selbst (Anwender 16.11.2026,
+            // 19.11.2026). Ohne Direktmodus steht damit nie ein ausgegrauter Haken im Formular.
+            {
                 zugtabelle.setSelected(false);
                 bahnsteige.setSelected(false);
                 signale.setSelected(false);
@@ -271,9 +279,11 @@ public class AnalyseApplication extends Application {
         format.setValue(Einstellungen.get("format", "Text"));
         alsXml.setSelected(Einstellungen.getBool("alsXml", false));
         direkt.setSelected(direktGewaehlt);
-        zugtabelle.setSelected(Einstellungen.getBool("zugtabelle", Einstellungen.getBool("zusaetze", false)));
-        bahnsteige.setSelected(Einstellungen.getBool("bahnsteige", Einstellungen.getBool("zusaetze", false)));
-        signale.setSelected(Einstellungen.getBool("signale", false));
+        // Zusätze sind bei jedem Start aus und werden nicht gespeichert; sie müssen ausdrücklich gewählt werden
+        // (Anwender 19.11.2026, Forum: sonst standen ausgegraute Haken vom letzten Lauf im Formular).
+        zugtabelle.setSelected(zusaetzeGewaehlt[0]);
+        bahnsteige.setSelected(zusaetzeGewaehlt[1]);
+        signale.setSelected(zusaetzeGewaehlt[2]);
         auftragFeld.setText(auftragInhalt);
         forum.setSelected(forumGewaehlt);
         forumUrl.setText(forumAdresse);
@@ -420,9 +430,9 @@ public class AnalyseApplication extends Application {
         Einstellungen.set("format", format.getValue());
         Einstellungen.setBool("alsXml", alsXml.isSelected());
         direktGewaehlt = direkt.isSelected();
-        Einstellungen.setBool("zugtabelle", zugtabelle.isSelected());
-        Einstellungen.setBool("bahnsteige", bahnsteige.isSelected());
-        Einstellungen.setBool("signale", signale.isSelected());
+        zusaetzeGewaehlt[0] = zugtabelle.isSelected();
+        zusaetzeGewaehlt[1] = bahnsteige.isSelected();
+        zusaetzeGewaehlt[2] = signale.isSelected();
         auftragInhalt = auftragFeld.getText();
         forumGewaehlt = forum.isSelected();
         forumAdresse = forumUrl.getText().trim();
@@ -523,7 +533,6 @@ public class AnalyseApplication extends Application {
                 ? I18n.t("kurz.ersparnis", k.ersparnis(), k.mitKb(), k.ohneKb())
                 : I18n.t("kurz.ersparnisUnbekannt"), 12);
         VBox v = inhalt(titel,
-                ueberschrift(I18n.t("kurz.h.was"), 14), absatz(I18n.t("kurz.wasGeprueft")),
                 ueberschrift(I18n.t("kurz.h.ergebnis"), 14), ergebnis, befunde,
                 ueberschrift(I18n.t("kurz.h.ki"), 14), absatz(I18n.t("kurz.wasKi")),
                 ueberschrift(I18n.t("kurz.h.token"), 14), absatz(I18n.t("kurz.token")), ersparnis,
@@ -884,8 +893,8 @@ public class AnalyseApplication extends Application {
         letztesLayout = layout.getValue() == null ? "" : layout.getValue().getFileName().toString();
         Zusammenstellung.Auftrag auftrag = new Zusammenstellung.Auftrag(layout.getValue(), gruppe.getValue(),
                 Einstellungen.docsOrdner(), Einstellungen.arbeitsordner(), alsXml.isSelected(),
-                direkt.isSelected() && !anf, sprache.getValue(), zugtabelle.isSelected() && !anf,
-                bahnsteige.isSelected() && !anf, direkt.isSelected() && signale.isSelected() && !anf,
+                direkt.isSelected() && !anf, sprache.getValue(), direkt.isSelected() && zugtabelle.isSelected() && !anf,
+                direkt.isSelected() && bahnsteige.isSelected() && !anf, direkt.isSelected() && signale.isSelected() && !anf,
                 format.getValue(), mitForum ? url : "", mitForum ? forumText.getText() : "",
                 anf ? "" : auftragFeld.getText(),
                 Einstellungen.handbuchAdresse(),

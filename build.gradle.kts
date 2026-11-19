@@ -11,7 +11,7 @@ plugins {
 }
 
 group = "com.example"
-version = "1.4"
+version = "1.5"
 
 repositories {
     mavenCentral()
@@ -87,6 +87,9 @@ application {
 // JavaFX laedt native Bibliotheken ueber System.load() - seit JDK 24 ohne
 // diese Angabe mit Warnung (siehe iTrain-Logistik/build.gradle.kts).
 val ENABLE_NATIVE_ACCESS = "--enable-native-access=javafx.graphics"
+// Java4Shell (CVE-2026-114938, Liberica 25.0.5): Fehler in der beschleunigten Base64-Routine. Bis Liberica 25.0.5.1
+// über foojay verfügbar ist, schaltet die Startoption diese Beschleunigung ab (Anwender 19.11.2026). Danach entfernen.
+val OHNE_BASE64_INTRINSICS = "-XX:-UseBASE64Intrinsics"
 
 tasks.named<JavaExec>("run") {
     jvmArgs(ENABLE_NATIVE_ACCESS)
@@ -117,7 +120,7 @@ jlink {
     launcher {
         // Muss mit jpackage.imageName uebereinstimmen (siehe iTrain_import_export).
         name = "iTrain-Analyse"
-        jvmArgs = listOf(ENABLE_NATIVE_ACCESS)
+        jvmArgs = listOf(ENABLE_NATIVE_ACCESS, OHNE_BASE64_INTRINSICS)
     }
 
     jpackage {
@@ -131,7 +134,7 @@ jlink {
         installerName = "iTrain-Analyse-$osLabel"
         appVersion = project.version.toString()
         vendor = "Andre Ruff"
-        jvmArgs = listOf(ENABLE_NATIVE_ACCESS)
+        jvmArgs = listOf(ENABLE_NATIVE_ACCESS, OHNE_BASE64_INTRINSICS)
         // Programmsymbol (Anwender 03.11.2026), Quelle packaging/icons/icon.svg
         icon = when {
             os.isWindows -> file("packaging/icons/app-icon.ico").path

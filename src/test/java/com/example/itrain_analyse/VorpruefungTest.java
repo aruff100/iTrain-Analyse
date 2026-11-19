@@ -150,8 +150,29 @@ class VorpruefungTest {
         assertEquals(java.util.List.of("BR 44", "1000", "100"), hoch.tabelle().zeilen().get(0));
         Vorpruefung.Befund bs = befund(e, "Keine Bahnsteige eingetragen");
         assertEquals(2, bs.stufe());
-        assertTrue(bs.text().contains("1 Bahnhofsblöcke"));
+        assertTrue(bs.text().contains("1 Bahnhofsblock)"));
         assertTrue(befund(pruefe(dir), "Keine Bahnsteige eingetragen") == null);
+    }
+
+    @Test
+    void melderInZweiBloeckenUndEinseitigeVerbindung(@TempDir Path dir) throws IOException {
+        String tcd = TCD.replace("<feedbacks count=\"2\">", "<feedbacks count=\"3\">"
+                        + "<feedback name=\"M-C\"><interface name=\"Z21\" address=\"5\"/></feedback>")
+                .replace("<block name=\"C\"><length unit=\"cm\">100.0</length>",
+                        "<block name=\"C\"><length unit=\"cm\">100.0</length><feedbacks count=\"1\" unit=\"cm\">"
+                                + "<feedback name=\"M-B\" position=\"0.0\"/></feedbacks>")
+                .replace("<next><side-block/></next>", "<next><side-block name=\"A\"/></next>");
+        Path f = dir.resolve("Test.tcd");
+        Files.writeString(f, tcd, StandardCharsets.UTF_8);
+        Vorpruefung.Ergebnis e = Vorpruefung.pruefe(Anlage.lies(f), true, true, true);
+        Vorpruefung.Befund m = befund(e, "Rückmelder in mehreren Blöcken");
+        assertEquals(Vorpruefung.Art.FEHLER, m.art());
+        assertEquals(java.util.List.of("M-B", "B, C"), m.tabelle().zeilen().get(0));
+        assertTrue(m.text().contains("M-C"));
+        Vorpruefung.Befund v = befund(e, "Blockverbindung nur in einer Richtung");
+        assertEquals(java.util.List.of("D", "Nächste", "A (ohne Seite)", "A nennt D in keiner Richtung"),
+                v.tabelle().zeilen().get(0));
+        assertFalse(v.text().contains("Block A nennt B"));
     }
 
     @Test
