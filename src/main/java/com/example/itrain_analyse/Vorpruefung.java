@@ -820,7 +820,6 @@ public final class Vorpruefung {
         List<List<String>> erlaubnisFehler = new ArrayList<>();
         List<List<String>> erlaubnisTeil = new ArrayList<>();
         List<String> wiederholung = new ArrayList<>();
-        List<String> reservierung = new ArrayList<>();
         List<String> marker = new ArrayList<>();
         List<String> kritischWarten = new ArrayList<>();
         List<String> spurweite = new ArrayList<>();
@@ -890,11 +889,6 @@ public final class Vorpruefung {
                                 + ")");
                     }
                 }
-            }
-            if (r.reservierung() != null && r.reservierung() > e.size()
-                    || r.reservierungStart() != null && r.reservierungStart() > e.size()) {
-                reservierung.add(r.name() + " (" + e.size() + t(" Einträge, Reservierung ", " items, reservation ")
-                        + r.reservierung() + "/" + r.reservierungStart() + ")");
             }
             // "Kritisch" an einem Eintrag mit Wartezeit ist wirkungslos (Handbuch S. 158; bestätigt im Forum,
             // LudwigR 18.11.2026)
@@ -975,11 +969,6 @@ public final class Vorpruefung {
         if (!wiederholung.isEmpty()) {
             befund(4, Art.HINWEIS, t("Wiederholte Route endet nicht am Anfang", "Repeated route does not end at its start"),
                     liste(wiederholung) + ".", "S. 155", false, null);
-        }
-        if (!reservierung.isEmpty()) {
-            befund(4, Art.HINWEIS, t("Reservierungsanzahl größer als die Zahl der Einträge",
-                    "Reservation count greater than the number of items"), liste(reservierung) + ".", "S. 161",
-                    false, null);
         }
         if (!spurweite.isEmpty()) {
             befund(4, Art.HINWEIS, t("Routenblöcke mit verschiedener Spurweite", "Route blocks with different gauges"),
