@@ -69,9 +69,9 @@ public final class Vorpruefung {
         return schnittstelle != null && !demo.contains(schnittstelle);
     }
 
-    /** Reaktionsverzögerung (ms): darüber Fehler bzw. Hinweis (Anwender 18.11.2026). */
+    /** Reaktionsverzögerung (ms): darüber Fehler bzw. Hinweis (Anwender 18.11.2026, Hinweis ab 1500 ms seit 20.11.2026). */
     static final int REAKTION_FEHLER = 2000;
-    static final int REAKTION_HINWEIS = 500;
+    static final int REAKTION_HINWEIS = 1500;
 
     private static String ms(Integer w) {
         return w == null ? "–" : String.valueOf(w);
@@ -84,6 +84,8 @@ public final class Vorpruefung {
         v.zubehoer();
         v.bloecke();
         v.fahrzeuge();
+        v.signalfelder();
+        v.weiterePruefungen();
         int routen = v.routen();
         Tabelle zt = null;
         List<String> zh = new ArrayList<>();
@@ -284,6 +286,33 @@ public final class Vorpruefung {
                             "These feedbacks are assigned to a block but are not of the occupancy type: ")
                             + liste(falscherTyp) + ".", "S. 93, S. 115", false, null);
         }
+        // Nur iTrain 5: Melder-Tutorial von Norbert B. (Forum, "Tutorials und Anleitungen"); für 6 nicht mehr
+        // maßgeblich (Anwender 20.11.2026).
+        if (a.version != null && a.version.startsWith("5")) {
+            List<String> nurPunkt = new ArrayList<>();
+            for (Anlage.Block b : a.bloecke.values()) {
+                if (!b.aktiv() || b.melder().isEmpty()) {
+                    continue;
+                }
+                boolean belegt = b.melder().stream().map(bm -> mi.get(bm.name()))
+                        .anyMatch(m -> m == null || m.typ() == null || m.typ().equals("occupancy"));
+                if (!belegt) {
+                    nurPunkt.add(b.name());
+                }
+            }
+            if (!nurPunkt.isEmpty()) {
+                befund(2, Art.HINWEIS, t("Blöcke nur mit Punktmeldern", "Blocks with point feedbacks only"),
+                        t("In diesen Blöcken gibt es keinen Belegtmelder. Punktmelder (Reed, Hall, Lichtschranke) "
+                                + "melden nur \"ich bin hier\"; ein abgekuppelter Wagen oder ein außerhalb liegen "
+                                + "gebliebener Zug wird nicht erkannt. Punktmelder nur zusätzlich zu einem Belegtmelder "
+                                + "einsetzen: ", "These blocks have no occupancy feedback. Point feedbacks (reed, "
+                                + "Hall, light barrier) only report \"I am here\"; an uncoupled wagon or a train "
+                                + "stopped elsewhere is not detected. Use point feedbacks only in addition to an "
+                                + "occupancy feedback: ") + liste(nurPunkt) + ".",
+                        t("Tutorial \"Melder in iTrain\" (Norbert B., iTrain 5)",
+                                "Tutorial \"Melder in iTrain\" (Norbert B., iTrain 5)"), false, null);
+            }
+        }
         List<String> freieBelegtmelder = a.melder.stream()
                 .filter(m -> !imBlock.contains(m.name()) && (m.typ() == null || m.typ().equals("occupancy")))
                 .map(Anlage.Melder::name).toList();
@@ -322,8 +351,10 @@ public final class Vorpruefung {
 
     private void zubehoer() {
         List<String> ohneAdresse = new ArrayList<>();
+        List<String> relaisOhneAdresse = new ArrayList<>();
         List<String> handweichen = new ArrayList<>();
         Map<String, List<String>> adressen = new LinkedHashMap<>();
+        Set<String> doppeltErlaubt = new HashSet<>();
         for (Anlage.Zubehoer z : a.zubehoer) {
             if (z.adresse() == null) {
                 if (z.schnittstelle() == null) {
@@ -332,12 +363,26 @@ public final class Vorpruefung {
                     }
                 } else if (brauchtAdresse(z.schnittstelle()) && !z.art().equals("signal")
                         && !z.art().equals("aspect")) {
-                    ohneAdresse.add(z.name() + " (" + z.art() + ")");
+                    // Relais ohne Adresse sind meist Merker für Aktionen (Anwender 20.11.2026)
+                    (z.art().equals("relay") ? relaisOhneAdresse : ohneAdresse).add(z.name() + " (" + z.art() + ")");
                 }
             } else {
-                adressen.computeIfAbsent(z.schnittstelle() + " | " + z.adresse(), k -> new ArrayList<>())
-                        .add(z.name() + " (" + z.art() + ")");
+                String k = z.schnittstelle() + " | " + z.adresse();
+                adressen.computeIfAbsent(k, x -> new ArrayList<>()).add(z.name() + " (" + z.art() + ")");
+                // Option "Doppelte Adresse erlaubt" gesetzt: Doppelbelegung ist gewollt (Anwender 20.11.2026)
+                if (z.optionen().contains("addr_duplicate")) {
+                    doppeltErlaubt.add(k);
+                }
             }
+        }
+        doppeltErlaubt.forEach(adressen::remove);
+        if (!relaisOhneAdresse.isEmpty()) {
+            befund(0, Art.ANMERKUNG, t("Relais ohne Adresse", "Relays without address"),
+                    t(relaisOhneAdresse.size() + " Relais haben eine Schnittstelle, aber keine Adresse. Meist sind "
+                            + "das Merker für Aktionen; virtuelle Objekte brauchen keine Adresse: ",
+                            relaisOhneAdresse.size() + " relays have an interface but no address. Usually these are "
+                                    + "flags for actions; virtual objects need no address: ")
+                            + liste(relaisOhneAdresse) + ".", "S. 95", false, null);
         }
         if (!ohneAdresse.isEmpty()) {
             befund(4, Art.HINWEIS, t("Zubehör ohne Adresse", "Accessories without address"),
@@ -560,15 +605,27 @@ public final class Vorpruefung {
         List<String> inaktiv = new ArrayList<>();
         List<List<String>> reaktionFehler = new ArrayList<>();
         List<List<String>> reaktionHoch = new ArrayList<>();
+        List<List<String>> traegheitKurz = new ArrayList<>();
+        List<String> decoderAbv = new ArrayList<>();
+        List<String> ohneOffset = new ArrayList<>();
+        Map<String, List<String>> lokAdressen = new LinkedHashMap<>();
         for (Anlage.Lok l : a.loks.values()) {
+            // Reaktionsverzögerung auch bei inaktiven Loks: Beim Aktivieren stimmt der Wert sonst nicht (Anwender
+            // 20.11.2026, Befund aus einer KI-Analyse).
+            Integer rm = l.reaktionMax();
+            if (rm != null && rm > REAKTION_HINWEIS) {
+                List<String> zeile = List.of(l.name() + (l.aktiv() ? "" : t(" (inaktiv)", " (inactive)")),
+                        ms(l.reaktionVor()), ms(l.reaktionRueck()));
+                (rm > REAKTION_FEHLER ? reaktionFehler : reaktionHoch).add(zeile);
+            }
             if (!l.aktiv()) {
                 inaktiv.add(l.name());
                 continue;
             }
-            Integer rm = l.reaktionMax();
-            if (rm != null && rm > REAKTION_HINWEIS) {
-                List<String> zeile = List.of(l.name(), ms(l.reaktionVor()), ms(l.reaktionRueck()));
-                (rm > REAKTION_FEHLER ? reaktionFehler : reaktionHoch).add(zeile);
+            // Hexadezimale Werte (BiDiB, IFnet) sind die Knotenkennung, nicht die Lokadresse.
+            if (l.adresse() != null && l.schnittstelle() != null && !l.adresse().startsWith("0x")) {
+                lokAdressen.computeIfAbsent(l.schnittstelle() + " | " + l.adresse(), k -> new ArrayList<>())
+                        .add(l.name());
             }
             if (l.adresse() == null && brauchtAdresse(l.schnittstelle())) {
                 ohneAdresse.add(l.name());
@@ -579,6 +636,56 @@ public final class Vorpruefung {
             if (l.fahrstufen() == 0) {
                 ohneProfil.add(l.name());
             }
+            if (!l.offsetVorhanden()) {
+                ohneOffset.add(l.name());
+            }
+            // Trägheitssimulation: unter 100 ms nicht brauchbar (S. 49). Die Stufenschrittweite prüfen wir nicht:
+            // 1 oder 2 ist üblich, 4 oder 5 nur bei hoher Last durch viele Fahrzeuge (Anwender 20.11.2026).
+            boolean anKurz = l.traegheitAnfahren() != null && l.traegheitAnfahren() > 0 && l.traegheitAnfahren() < 100;
+            boolean brKurz = l.traegheitBremsen() != null && l.traegheitBremsen() > 0 && l.traegheitBremsen() < 100;
+            if (anKurz || brKurz) {
+                traegheitKurz.add(List.of(l.name(), ms(l.traegheitAnfahren()), ms(l.traegheitBremsen())));
+            }
+            // Anfahr-/Bremsverzögerung im Decoder (CV3/CV4) möglichst minimal; ESU-Sound 11 (Anwender 20.11.2026)
+            if ((l.cv3() != null && l.cv3() > 11) || (l.cv4() != null && l.cv4() > 11)) {
+                decoderAbv.add(l.name() + " (CV3=" + (l.cv3() == null ? "?" : l.cv3()) + ", CV4="
+                        + (l.cv4() == null ? "?" : l.cv4()) + ")");
+            }
+        }
+        if (!traegheitKurz.isEmpty()) {
+            befund(3, Art.HINWEIS, t("Trägheitssimulation unter 100 ms", "Inertia simulation below 100 ms"),
+                    t("Werte unter 100 ms sind laut Handbuch nicht brauchbar: Die Lok verarbeitet die einzelnen "
+                            + "Fahrbefehle nicht, bevor der nächste kommt. Gute Werte liegen zwischen 100 und 500 ms. "
+                            + "Im Lok-Editor unter \"Optionen\" ändern.",
+                            "According to the manual values below 100 ms are not usable: the locomotive does not "
+                                    + "process the individual speed commands before the next one arrives. Good "
+                                    + "values are between 100 and 500 ms. Change them in the locomotive editor "
+                                    + "under \"Options\"."),
+                    "S. 49", false, new Tabelle(List.of(t("Lok", "Locomotive"), t("Anfahren (ms)",
+                            "Accelerate (ms)"), t("Bremsen (ms)", "Brake (ms)")), traegheitKurz));
+        }
+        if (!decoderAbv.isEmpty()) {
+            befund(0, Art.ANMERKUNG, t("Hohe Anfahr- und Bremsverzögerung im Decoder",
+                    "High acceleration and deceleration in the decoder"),
+                    t("Die Wegberechnung arbeitet am besten, wenn CV3 und CV4 im Decoder auf dem Minimum stehen und die "
+                            + "Einmesskurve linear ist; bei ESU-Sounddecodern genügt 11. Wer die Herstellerwerte "
+                            + "behält, gleicht die Haltepunkte mit der Reaktionsverzögerung und der Trägheitssimulation "
+                            + "aus. Gespeicherte Werte: ",
+                            "Position calculation works best when CV3 and CV4 are at their minimum and the speed curve "
+                                    + "is linear; 11 is enough for ESU sound decoders. If you keep the manufacturer's "
+                                    + "values, adjust the stop points with the reaction delay and the inertia "
+                                    + "simulation. Stored values: ") + liste(decoderAbv) + ".",
+                    "S. 49, S. 118", false, null);
+        }
+        if (!ohneOffset.isEmpty()) {
+            befund(3, Art.FEHLER, t("Aktive Loks ohne Rückmeldungs-Offset", "Active locomotives without feedback offset"),
+                    t("Bei diesen Loks ist kein Rückmeldungs-Offset eingetragen (alle Werte 0). Der Offset gibt den "
+                            + "Abstand vom Puffer bis zur ersten bzw. letzten meldenden Achse an; ohne ihn stimmen "
+                            + "Position und Haltepunkt nicht. Im Lok-Editor unter \"Optionen\" eintragen: ",
+                            "No feedback offset is entered for these locomotives (all values 0). The offset is the "
+                                    + "distance from the buffer to the first or last detecting axle; without it "
+                                    + "position and stop point are wrong. Enter it in the locomotive editor under "
+                                    + "\"Options\": ") + liste(ohneOffset) + ".", "S. 49–50", false, null);
         }
         if (!ohneAdresse.isEmpty()) {
             befund(3, Art.HINWEIS, t("Aktive Loks ohne Adresse", "Active locomotives without address"),
@@ -596,6 +703,26 @@ public final class Vorpruefung {
                     liste(ohneProfil) + t(". In der Datei steht keine Geschwindigkeitstabelle.",
                             ". The file contains no speed table."), "S. 46", true, null);
         }
+        List<List<String>> doppelLok = new ArrayList<>();
+        lokAdressen.forEach((k, v) -> {
+            if (v.size() > 1) {
+                String[] t0 = k.split(" \\| ", 2);
+                doppelLok.add(List.of(t0[0], t0[1], String.join(", ", v)));
+            }
+        });
+        if (!doppelLok.isEmpty()) {
+            befund(3, Art.HINWEIS, t("Gleiche Decoderadresse bei mehreren aktiven Loks",
+                    "Same decoder address on several active locomotives"),
+                    t("Diese aktiven Loks haben an derselben Schnittstelle dieselbe Adresse. Fahren sie gleichzeitig, "
+                            + "steuert iTrain beide Decoder gemeinsam. Gewollt ist das nur bei einem Decoder, den "
+                            + "mehrere Lok-Einträge teilen; sonst Adresse korrigieren oder eine Lok deaktivieren.",
+                            "These active locomotives have the same address on the same interface. If they run at "
+                                    + "the same time, iTrain controls both decoders together. This is only intended "
+                                    + "for one decoder shared by several locomotive entries; otherwise correct the "
+                                    + "address or deactivate one locomotive."),
+                    "S. 42", false, new Tabelle(List.of(t("Schnittstelle", "Interface"), t("Adresse", "Address"),
+                            t("Loks", "Locomotives")), doppelLok));
+        }
         List<String> reaktionKopf = List.of(t("Lok", "Locomotive"), t("vorwärts (ms)", "forward (ms)"),
                 t("rückwärts (ms)", "backward (ms)"));
         if (!reaktionFehler.isEmpty()) {
@@ -610,10 +737,12 @@ public final class Vorpruefung {
                     "S. 50, S. 118", false, new Tabelle(reaktionKopf, reaktionFehler));
         }
         if (!reaktionHoch.isEmpty()) {
-            befund(3, Art.HINWEIS, t("Reaktionsverzögerung über 500 ms", "Reaction delay above 500 ms"),
-                    t("Voreingestellt sind 200 ms; der Wert wird durch Ausprobieren ermittelt. Je höher er ist, "
-                            + "desto früher hält die Lok. Prüfen, ob die Lok an der gewünschten Position hält.",
-                            "The default is 200 ms; the value is found by trial. The higher it is, the earlier the "
+            befund(3, Art.HINWEIS, t("Reaktionsverzögerung über 1500 ms", "Reaction delay above 1500 ms"),
+                    t("Voreingestellt sind 200 ms; der Wert wird durch Ausprobieren ermittelt und liegt in der Praxis "
+                            + "höher, üblich sind 400 bis 1000 ms, bei schweren Loks bis 1500 ms. Je höher er ist, desto "
+                            + "früher hält die Lok. Prüfen, ob die Lok an der gewünschten Position hält.",
+                            "The default is 200 ms; the value is found by trial and is higher in practice, usually "
+                            + "400 to 1000 ms, up to 1500 ms for heavy locomotives. The higher it is, the earlier the "
                             + "locomotive stops. Check whether it stops at the intended position."),
                     "S. 50, S. 118", false, new Tabelle(reaktionKopf, reaktionHoch));
         }
@@ -697,8 +826,13 @@ public final class Vorpruefung {
         List<String> spurweite = new ArrayList<>();
         String vorgabe = a.spurweite == null ? "n" : a.spurweite;
         int geprueft = 0;
+        List<String> inaktiveRouten = new ArrayList<>();
         for (Anlage.Route r : a.routen.values()) {
-            if (!r.aktiv() || r.eintraege().isEmpty()) {
+            if (!r.aktiv()) {
+                inaktiveRouten.add(r.name());
+                continue;
+            }
+            if (r.eintraege().isEmpty()) {
                 continue;
             }
             geprueft++;
@@ -807,7 +941,11 @@ public final class Vorpruefung {
                     "S. 155, S. 159, S. 161", true, new Tabelle(kopf, vermutlich));
         }
         List<String> ekopf = List.of(t("Route", "Route"), t("Zug", "Train"), t("Eintrag", "Item"),
-                t("gesperrter Block", "blocked block"), t("Erlaubnis von", "Permission of"));
+                t("gesperrter Block", "blocked block"), t("frei bleibt", "remains free"),
+                t("Erlaubnis von", "Permission of"));
+        erlaubnisFehler = new ArrayList<>(new LinkedHashSet<>(erlaubnisFehler));
+        erlaubnisTeil = new ArrayList<>(new LinkedHashSet<>(erlaubnisTeil));
+        boolean nurEiner = erlaubnisTeil.stream().anyMatch(z -> !z.get(4).contains(","));
         if (!erlaubnisFehler.isEmpty()) {
             befund(1, Art.FEHLER, t("Route durch Erlaubnis gesperrt", "Route blocked by permission"),
                     t("Für diese Züge sind alle Blöcke eines Routeneintrags durch Erlaubnisse gesperrt. Die Route "
@@ -824,7 +962,14 @@ public final class Vorpruefung {
             befund(4, Art.HINWEIS, t("Routenauswahl durch Erlaubnis eingeschränkt",
                     "Route selection restricted by permission"),
                     t("Ein Teil der Alternativen eines Routeneintrags ist für diese Züge gesperrt.",
-                            "Some of the alternatives of a route item are blocked for these trains."),
+                            "Some of the alternatives of a route item are blocked for these trains.")
+                            + (nurEiner ? t(" Bleibt nur ein Block frei, wartet der Zug, solange dieser Block "
+                                    + "belegt ist, und startet die Route scheinbar nicht. Die Blocklänge spielt dabei "
+                                    + "keine Rolle; bei der Auswahl \"Reihenfolge\" prüft iTrain keine Längen.",
+                                    " If only one block remains free, the train waits as long as this block is "
+                                            + "occupied and the route seems not to start. The block length plays no "
+                                            + "role; with the selection \"Order\" iTrain does not check lengths.")
+                                    : ""),
                     "S. 50, S. 54, S. 56, S. 60, S. 159, S. 162", false, new Tabelle(ekopf, erlaubnisTeil));
         }
         if (!wiederholung.isEmpty()) {
@@ -864,6 +1009,11 @@ public final class Vorpruefung {
         if (zeilen.isEmpty() && vermutlich.isEmpty() && erlaubnisFehler.isEmpty()) {
             ohne.add(t("Routen überprüft (" + geprueft + " Routen), keine Befunde.",
                     "Routes checked (" + geprueft + " routes), no findings."));
+        }
+        if (!inaktiveRouten.isEmpty()) {
+            // Regel P10: nicht geprüfte Routen mit Namen nennen (Anwender 20.11.2026)
+            ohne.add(t(inaktiveRouten.size() + " inaktive Routen nicht geprüft: ",
+                    inaktiveRouten.size() + " inactive routes not checked: ") + liste(inaktiveRouten) + ".");
         }
         return geprueft;
     }
@@ -926,11 +1076,303 @@ public final class Vorpruefung {
                 if (gesperrt.isEmpty()) {
                     continue;
                 }
+                List<String> frei = bl.stream().map(Anlage.BlockSeite::block).filter(b -> !gesperrt.contains(b))
+                        .distinct().toList();
                 List<String> zeile = List.of(r.name(), z.name(), x.name(), String.join(", ", gesperrt),
-                        String.join(", ", von));
+                        frei.isEmpty() ? "–" : String.join(", ", frei), String.join(", ", von));
                 (gesperrt.size() == bl.size() ? fehler : teil).add(zeile);
             }
         }
+    }
+
+    // --- Weitere Prüfungen aus dem Vergleich mit KI-Analysen (Anwender 20.11.2026) -----------------------------------
+
+    /** Funktionen, die iTrain 6 beim Anlegen eines Zuges in Start und Stopp einträgt (Korpus 20.11.2026). */
+    private static final Set<String> STANDARD_ZUGFUNKTIONEN = Set.of("Licht vorn", "Licht hinten",
+            "Licht hinten/vorn Innenseite aus", "Innenbeleuchtung", "Nummernschild", "Zuglaufschild");
+
+    void weiterePruefungen() {
+        // Funktionen in Zug- und Routenaktionen, die kein Fahrzeug des Zuges hat (Handbuch S. 58)
+        List<List<String>> fehlend = new ArrayList<>();
+        for (Anlage.Zug z : a.zuege) {
+            if (!z.aktiv() || z.teile().isEmpty()) {
+                continue;
+            }
+            Set<String> hat = new HashSet<>();
+            boolean bekannt = true;
+            for (Anlage.Teil t0 : z.teile()) {
+                Set<String> f = t0.name() == null ? null : a.fahrzeugFunktionen.get(t0.name());
+                if (f == null) {
+                    bekannt = t0.art().equals("ANONYM") && bekannt;
+                    continue;
+                }
+                hat.addAll(f);
+            }
+            if (!bekannt || hat.isEmpty()) {
+                continue;
+            }
+            Map<String, Set<String>> stellen = new LinkedHashMap<>();
+            for (String f : a.zugFunktionen.getOrDefault(z.name(), List.of())) {
+                // Die Standardaktionen, die iTrain in jeden neuen Zug schreibt, sind ohne Wirkung, aber harmlos.
+                if (!hat.contains(f) && !STANDARD_ZUGFUNKTIONEN.contains(f)) {
+                    stellen.computeIfAbsent(f, k -> new LinkedHashSet<>()).add(t("Start/Stopp des Zuges",
+                            "train start/stop"));
+                }
+            }
+            for (String r : z.routen()) {
+                Anlage.Route ro = a.routen.get(r);
+                if (ro == null || !ro.aktiv()) {
+                    continue;
+                }
+                for (String f : a.routenFunktionen.getOrDefault(r, List.of())) {
+                    if (!hat.contains(f)) {
+                        stellen.computeIfAbsent(f, k -> new LinkedHashSet<>()).add(t("Route ", "route ") + r);
+                    }
+                }
+            }
+            stellen.forEach((f, st) -> fehlend.add(List.of(z.name(),
+                    f.isEmpty() ? t("(ohne Namen)", "(no name)") : f, String.join(", ", st))));
+        }
+        if (!fehlend.isEmpty()) {
+            befund(3, Art.HINWEIS, t("Funktionen in Aktionen, die kein Fahrzeug des Zuges hat",
+                    "Functions in actions that no vehicle of the train has"),
+                    t("Aktionen mit Funktionen, die in den Loks und Wagen des Zuges nicht vorhanden sind, führt iTrain "
+                            + "nicht aus. Handlung: im Zug- bzw. Routeneditor die passende Funktion wählen oder sie "
+                            + "der Lok bzw. dem Wagen zuweisen.",
+                            "Actions with functions that the train's locomotives and wagons do not have are not "
+                                    + "carried out. Action: choose the matching function in the train or route "
+                                    + "editor, or assign it to the locomotive or wagon."),
+                    "S. 58", false, new Tabelle(List.of(t("Zug", "Train"), t("Funktion", "Function"),
+                            t("Stelle", "Place")), fehlend));
+        }
+        // Bremsposition hinter oder auf der Stopp-Position (Handbuch S. 117)
+        List<List<String>> bremse = new ArrayList<>();
+        for (Anlage.Block b : a.bloecke.values()) {
+            if (b.laenge() == null || b.laenge() <= 0) {
+                continue;
+            }
+            for (Anlage.Richtung r : List.of(b.prev(), b.next())) {
+                if (r.bremsen() == null || r.stopp() == null || r.bremsen() == 0 || r.stopp() == 0) {
+                    continue;
+                }
+                double br = r.bremsen() > 0 ? r.bremsen() : b.laenge() + r.bremsen();
+                double st = r.stopp() > 0 ? r.stopp() : b.laenge() + r.stopp();
+                if (br > st - 0.5) {
+                    bremse.add(List.of(b.name(), seite(r.seite()), zahl(br), zahl(st),
+                            br > st + 0.5 ? t("Bremsen hinter Stopp", "brake beyond stop")
+                                    : t("Bremsen = Stopp", "brake = stop")));
+                }
+            }
+        }
+        if (!bremse.isEmpty()) {
+            befund(2, Art.HINWEIS, t("Bremsposition hinter oder auf der Stopp-Position",
+                    "Brake position beyond or at the stop position"),
+                    t("Die Bremsposition muss vor der Stopp-Position liegen, sonst bremst der Zug erst am Haltepunkt "
+                            + "oder danach. Werte ab Blockanfang gerechnet.",
+                            "The brake position must lie before the stop position, otherwise the train only brakes "
+                                    + "at or after the stop point. Values measured from the block start."),
+                    "S. 117", false, new Tabelle(List.of(t("Block", "Block"), t("Richtung", "Direction"),
+                            t("Bremsen (cm)", "Brake (cm)"), t("Stopp (cm)", "Stop (cm)"),
+                            t("Problem", "Problem")), bremse));
+        }
+        // Routen mit inaktiven Blöcken (Release Notes 6.0.0: inaktive Blöcke gelten als nicht vorhanden)
+        List<List<String>> inaktiv = new ArrayList<>();
+        for (Anlage.Route r : a.routen.values()) {
+            if (!r.aktiv()) {
+                continue;
+            }
+            for (Anlage.Eintrag x : r.eintraege()) {
+                List<String> ina = vorhanden(x.bloecke()).stream().map(Anlage.BlockSeite::block).distinct()
+                        .filter(n -> !a.bloecke.get(n).aktiv()).toList();
+                if (!ina.isEmpty()) {
+                    long alle = vorhanden(x.bloecke()).stream().map(Anlage.BlockSeite::block).distinct().count();
+                    inaktiv.add(List.of(r.name(), x.name(), String.join(", ", ina),
+                            ina.size() == alle ? t("kein Block übrig", "no block left")
+                                    : t("Alternativen bleiben", "alternatives remain")));
+                }
+            }
+        }
+        if (!inaktiv.isEmpty()) {
+            boolean sperrt = inaktiv.stream().anyMatch(z -> z.get(3).equals(t("kein Block übrig", "no block left")));
+            befund(sperrt ? 1 : 4, sperrt ? Art.FEHLER : Art.HINWEIS, t("Routen mit inaktiven Blöcken",
+                    "Routes with inactive blocks"),
+                    t("Seit iTrain 6 werden inaktive Blöcke in Routen ignoriert, als gäbe es sie nicht. Bleibt für einen "
+                            + "Eintrag kein Block übrig, findet die Route keinen Weg. Handlung: Block aktivieren oder "
+                            + "die Route ändern.",
+                            "Since iTrain 6 inactive blocks in routes are ignored as if they did not exist. If no block "
+                                    + "is left for an item, the route finds no path. Action: activate the block or "
+                                    + "change the route."),
+                    "Release Notes 6.0.0", false, new Tabelle(List.of(t("Route", "Route"), t("Eintrag", "Item"),
+                            t("inaktiv", "inactive"), t("Folge", "Effect")), inaktiv));
+        }
+        // Bahnhofsblöcke außerhalb eines Bahnhofs, Blöcke ohne jede Verbindung
+        Set<String> imBahnhof = new HashSet<>();
+        a.bahnhoefe.forEach(bh -> bh.bloecke().forEach(bs -> imBahnhof.add(bs.block())));
+        Set<String> inRoute = new HashSet<>();
+        a.routen.values().forEach(r -> r.eintraege().forEach(x -> x.bloecke().forEach(bs -> inRoute.add(bs.block()))));
+        Set<String> genannt = new HashSet<>();
+        a.bloecke.values().forEach(b -> List.of(b.prev(), b.next())
+                .forEach(r -> r.nachbarn().forEach(n -> genannt.add(n.block()))));
+        List<String> bahnhofsblock = new ArrayList<>();
+        List<String> isoliert = new ArrayList<>();
+        for (Anlage.Block b : a.bloecke.values()) {
+            if ("station".equals(b.typ()) && !imBahnhof.contains(b.name()) && !a.bahnhoefe.isEmpty()) {
+                bahnhofsblock.add(b.name());
+            }
+            if (b.prev().nachbarn().isEmpty() && b.next().nachbarn().isEmpty() && !genannt.contains(b.name())
+                    && !inRoute.contains(b.name())) {
+                isoliert.add(b.name());
+            }
+        }
+        if (!bahnhofsblock.isEmpty()) {
+            befund(0, Art.ANMERKUNG, t("Bahnhofsblöcke in keinem Bahnhof", "Station blocks in no station"),
+                    t("Diese Blöcke haben den Typ \"Bahnhof\", gehören aber zu keinem Bahnhof: ",
+                            "These blocks have the type \"Station\" but belong to no station: ")
+                            + liste(bahnhofsblock) + t(". Routen mit Bahnhofseinträgen finden sie nicht.",
+                                    ". Routes with station items do not find them."), "S. 111, S. 121", false, null);
+        }
+        if (!isoliert.isEmpty()) {
+            befund(0, Art.ANMERKUNG, t("Blöcke ohne jede Verbindung", "Blocks without any connection"),
+                    t("Diese Blöcke haben keinen Nachbarn, werden von keinem Block genannt und kommen in keiner Route "
+                            + "vor (Rest einer Umplanung?): ", "These blocks have no neighbour, are named by no block "
+                            + "and appear in no route (left over from a redesign?): ") + liste(isoliert) + ".",
+                    "S. 120", true, null);
+        }
+        // Option "Kurzer Block" ohne NS-/NMBS-Signale (Handbuch S. 112)
+        List<String> kurz = a.bloecke.values().stream().filter(b -> b.optionen().contains("short"))
+                .map(Anlage.Block::name).toList();
+        boolean nlBe = a.zubehoer.stream().anyMatch(z -> z.art().equals("signal") && z.typ() != null
+                && (z.typ().startsWith("nl") || z.typ().startsWith("be")));
+        if (!kurz.isEmpty() && !nlBe) {
+            befund(0, Art.ANMERKUNG, t("Option \"Kurzer Block\" ohne NS- oder NMBS-Signale",
+                    "Option \"Short block\" without NS or NMBS signals"),
+                    t("Die Option wirkt nur bei den Signalsystemen NS und NMBS; hier bewirkt sie nichts (unschädlich): ",
+                            "The option only has an effect with the NS and NMBS signal systems; here it does nothing "
+                                    + "(harmless): ") + liste(kurz) + ".", "S. 112", false, null);
+        }
+        // Namen mit Leerzeichen am Anfang oder Ende
+        if (!a.leerzeichenNamen.isEmpty()) {
+            befund(0, Art.ANMERKUNG, t("Namen mit Leerzeichen am Anfang oder Ende",
+                    "Names with spaces at the start or end"),
+                    t("Solche Namen sind in Listen kaum zu unterscheiden und führen leicht zu Verwechslungen: ",
+                            "Such names are hard to tell apart in lists and easily lead to mix-ups: ")
+                            + liste(a.leerzeichenNamen) + ".", "S. 116", false, null);
+        }
+    }
+
+    // --- Signale im Blockeditor (Signalregeln V01, Regeln 2B–2D, 3A) -------------------------------------------------
+
+    private enum Rolle { HAUPT, MEHRFACH, VOR, RANGIER }
+
+    /** Rolle deutscher Signaltypen; unbekannte Typen (andere Länder) bleiben ungeprüft. */
+    private static Rolle rolle(String typ) {
+        if (typ == null) {
+            return null;
+        }
+        String t0 = typ.endsWith("f") ? typ.substring(0, typ.length() - 1) : typ;
+        return switch (t0) {
+            case "de_hp0_1", "de_hp0_2", "de_hp0_1_2" -> Rolle.HAUPT;
+            case "de_hp0_1_2_sh1", "de_ks_h", "de_ks_m", "de_hl_m" -> Rolle.MEHRFACH;
+            case "de_vr0_1_2", "de_ks_v" -> Rolle.VOR;
+            case "de_sh0_1" -> Rolle.RANGIER;
+            default -> null;
+        };
+    }
+
+    /** Signal im falschen Feld des Blockeditors, z. B. Mehrfach-Signal zusätzlich im Feld Rangiersignal. */
+    void signalfelder() {
+        Map<String, String> typ = new HashMap<>();
+        a.zubehoer.stream().filter(z -> z.art().equals("signal")).forEach(z -> typ.put(z.name(), z.typ()));
+        List<List<String>> z = new ArrayList<>();
+        Set<String> ungeprueft = new TreeSet<>();
+        Map<String, List<String>> hauptIn = new LinkedHashMap<>();
+        for (Anlage.Block b : a.bloecke.values()) {
+            for (Anlage.Richtung r : List.of(b.prev(), b.next())) {
+                for (String s : r.signale()) {
+                    String[] f = s.split(":", 2);
+                    String feld = f[0];
+                    String name = f[1];
+                    if (feld.equals("signal")) {
+                        hauptIn.computeIfAbsent(name, k -> new ArrayList<>()).add(b.name() + " (" + seite(r.seite()) + ")");
+                    }
+                    Rolle ro = rolle(typ.get(name));
+                    if (ro == null) {
+                        if (typ.containsKey(name)) {
+                            ungeprueft.add(typ.get(name));
+                        }
+                        continue;
+                    }
+                    String problem = switch (feld) {
+                        case "signal" -> ro == Rolle.VOR || ro == Rolle.RANGIER
+                                ? t("im Feld Hauptsignal steht kein Hauptsignal", "no home signal in the home field")
+                                : null;
+                        case "shunt-signal" -> ro == Rolle.MEHRFACH
+                                ? t("Mehrfach-Signal gehört nur in das Feld Hauptsignal",
+                                        "a multiple signal belongs only in the home field")
+                                : ro != Rolle.RANGIER ? t("im Feld Rangiersignal steht kein Rangiersignal",
+                                        "no shunting signal in the shunting field") : null;
+                        case "warning-signal", "side-warning-signal" -> ro != Rolle.VOR
+                                ? t("im Feld Vorsignal steht kein Vorsignal", "no distant signal in the distant field")
+                                : null;
+                        default -> null;
+                    };
+                    if (problem != null) {
+                        z.add(List.of(name, typ.get(name), b.name(), seite(r.seite()), feldName(feld), problem));
+                    }
+                }
+            }
+        }
+        if (!z.isEmpty()) {
+            befund(4, Art.FEHLER, t("Signal im falschen Feld des Blockeditors", "Signal in the wrong block field"),
+                    t("Diese Signale stehen in einem Feld, das nicht zu ihrer Rolle passt. Ein Mehrfach-Signal "
+                            + "(z. B. Ausfahrsignal mit Sh1, Ks-Signal) gehört nur in das Feld \"Hauptsignal\"; "
+                            + "seine Rangier- und Vorsignalrolle ordnet iTrain selbst zu. Handlung: im Blockeditor "
+                            + "auf dem Richtungs-Tab das falsche Feld leeren bzw. das Signal in das richtige Feld "
+                            + "eintragen. Für die KI: gehört bei gewähltem Zusatz 3 in die Signalprüfung.",
+                            "These signals are in a field that does not match their role. A multiple signal (e.g. "
+                                    + "exit signal with Sh1, Ks signal) belongs only in the field \"Home signal\"; "
+                                    + "iTrain assigns its shunting and distant role itself. Action: in the block "
+                                    + "editor on the direction tab clear the wrong field or enter the signal in the "
+                                    + "right field. For the AI: belongs in the signal check if extra 3 is chosen."),
+                    "S. 118–119", false, new Tabelle(List.of(t("Signal", "Signal"), t("Typ", "Type"),
+                            t("Block", "Block"), t("Richtung", "Direction"), t("Feld", "Field"),
+                            t("Problem", "Problem")), z));
+        } else if (!typ.isEmpty()) {
+            long n = typ.values().stream().filter(x -> rolle(x) != null).count();
+            if (n > 0) {
+                ohne.add(t("Signale: Feld im Blockeditor passt zur Rolle (" + n + " Signale).",
+                        "Signals: block field matches the role (" + n + " signals)."));
+            }
+        }
+        List<String> mehrfach = new ArrayList<>();
+        hauptIn.forEach((n, l) -> {
+            if (l.size() > 1) {
+                mehrfach.add(n + ": " + String.join(", ", l));
+            }
+        });
+        if (!mehrfach.isEmpty()) {
+            befund(0, Art.ANMERKUNG, t("Hauptsignal in mehreren Blöcken oder Richtungen",
+                    "Home signal in several blocks or directions"),
+                    t("Dasselbe Signal steht im Feld \"Hauptsignal\" mehrerer Blockrichtungen (z. B. "
+                            + "Gruppenausfahrsignal; die Signalregeln behandeln das nicht): ",
+                            "The same signal is in the field \"Home signal\" of several block directions (e.g. group "
+                                    + "exit signal; the signal rules do not cover this): ") + String.join("; ", mehrfach)
+                            + ".", "S. 118", false, null);
+        }
+        if (!ungeprueft.isEmpty()) {
+            ohne.add(t("Signaltypen ohne Feldprüfung (Rolle nicht hinterlegt): ",
+                    "Signal types without field check (role not known): ") + String.join(", ", ungeprueft) + ".");
+        }
+    }
+
+    private String feldName(String feld) {
+        return switch (feld) {
+            case "signal" -> t("Hauptsignal", "Home signal");
+            case "shunt-signal" -> t("Rangiersignal", "Shunting signal");
+            case "warning-signal" -> t("Vorsignal (Signal)", "Distant signal (Signal)");
+            case "side-warning-signal" -> t("Vorsignal (Block)", "Distant signal (Block)");
+            default -> feld;
+        };
     }
 
     private List<Anlage.BlockSeite> vorhanden(List<Anlage.BlockSeite> l) {
@@ -1273,10 +1715,10 @@ public final class Vorpruefung {
         }
         sb.append('\n').append(de ? "NICHT IM PROGRAMM GEPRÜFT (Aufgabe der KI): Zugoptionen und Eventintervalle, "
                 + "Release Notes, Aktionen, \"Kritisch\" an Blöcken, Blocktyp und Blockoptionen im Zusammenhang, Weichen-"
-                + "Belegtmelder, Geschwindigkeitsprofile fachlich, Zusatz 3 Signale, Zusatzauftrag.\n"
+                + "Belegtmelder, Geschwindigkeitsprofile fachlich, Zusatz 3 Signale (außer Feld im Blockeditor), Zusatzauftrag.\n"
                 : "NOT CHECKED BY THE PROGRAM (task of the AI): train options and event intervals, release notes, "
                         + "actions, \"Critical\" on blocks, block type and block options in context, turnout occupancy "
-                        + "feedbacks, speed profiles, extra 3 signals, additional task.\n");
+                        + "feedbacks, speed profiles, extra 3 signals (except block field), additional task.\n");
         return sb.toString();
     }
 

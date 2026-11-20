@@ -5,6 +5,9 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -35,7 +38,8 @@ public final class Anlage {
     }
 
     /** Zubehör (Weiche, Signal, Relais …); adresse null, wenn keine eingetragen ist. */
-    public record Zubehoer(String art, String name, String typ, String schnittstelle, String adresse) {
+    public record Zubehoer(String art, String name, String typ, String schnittstelle, String adresse,
+            Set<String> optionen) {
     }
 
     /** Nachbarblock in einer Blockrichtung: Name und die Seite des Nachbarn, die anliegt (prev/next/both/null). */
@@ -96,7 +100,8 @@ public final class Anlage {
 
     public record Lok(String name, boolean aktiv, String spurweite, String typ, String schnittstelle,
             String adresse, Double laenge, int fahrstufen, boolean offsetVorhanden, Erlaubnis erlaubnis,
-            Integer reaktionVor, Integer reaktionRueck) {
+            Integer reaktionVor, Integer reaktionRueck, Integer decoderStufen, Integer traegheitAnfahren,
+            Integer traegheitBremsen, Integer schrittweite, Integer cv3, Integer cv4) {
 
         /** Größere der beiden Reaktionsverzögerungen in ms, null wenn nicht in der Datei. */
         public Integer reaktionMax() {
@@ -146,6 +151,14 @@ public final class Anlage {
     public final List<Zug> zuege = new ArrayList<>();
     public final Map<String, Route> routen = new LinkedHashMap<>();
     public final int aktionen;
+    /** Funktionsnamen je Lok bzw. Wagen (Registerkarte "Funktionen"). */
+    public final Map<String, Set<String>> fahrzeugFunktionen = new HashMap<>();
+    /** Funktionsnamen in den Start- und Stopp-Aktionen je Zug ("" = ohne Namen). */
+    public final Map<String, List<String>> zugFunktionen = new LinkedHashMap<>();
+    /** Funktionsnamen in den Aktionen der Routeneinträge je Route ("" = ohne Namen). */
+    public final Map<String, List<String>> routenFunktionen = new LinkedHashMap<>();
+    /** Objektnamen mit Leerzeichen am Anfang oder Ende, als "Art: 'Name'". */
+    public final List<String> leerzeichenNamen = new ArrayList<>();
 
     private Anlage(String datei, Element wurzel) {
         this.datei = datei;
@@ -176,7 +189,7 @@ public final class Anlage {
         for (Element e : kinder(kind(items, "accessories"), null)) {
             Element i = kind(e, "interface");
             zubehoer.add(new Zubehoer(e.getTagName(), e.getAttribute("name"), leer(e.getAttribute("type")),
-                    i == null ? null : leer(i.getAttribute("name")), adresse(e, i)));
+                    i == null ? null : leer(i.getAttribute("name")), adresse(e, i), optionen(e)));
         }
         for (Element e : kinder(kind(items, "blocks"), "block")) {
             List<BlockMelder> bm = new ArrayList<>();
@@ -203,8 +216,11 @@ public final class Anlage {
             loks.put(e.getAttribute("name"), new Lok(e.getAttribute("name"), !"false".equals(e.getAttribute("active")),
                     leer(e.getAttribute("gauge")), leer(e.getAttribute("type")),
                     i == null ? null : leer(i.getAttribute("name")), adresse(e, i), laenge(e),
-                    sc == null ? 0 : kinder(sc, "speed").size(), fb != null && kind(fb, "offset") != null,
-                    erlaubnis(e), reaktion(rv, "forward"), reaktion(rv, "backward")));
+                    sc == null ? 0 : kinder(sc, "speed").size(), offsetGesetzt(fb),
+                    erlaubnis(e), reaktion(rv, "forward"), reaktion(rv, "backward"),
+                    ganzzahl(kind(e, "decoder"), "steps"), ganzzahl(kind(e, "acceleration"), "delay"),
+                    ganzzahl(kind(e, "deceleration"), "delay"), ganzzahl(kind(e, "acceleration"), "step"),
+                    cv(e, "3"), cv(e, "4")));
         }
         for (Element e : kinder(kind(items, "wagons"), "wagon")) {
             wagen.put(e.getAttribute("name"), new Wagen(e.getAttribute("name"),
@@ -272,6 +288,79 @@ public final class Anlage {
                     optionen(e)));
         }
         this.aktionen = kinder(kind(items, "actions"), "action").size();
+        for (String liste : List.of("locomotives", "wagons")) {
+            for (Element e : kinder(kind(items, liste), null)) {
+                Set<String> fn = new HashSet<>();
+                for (Element f : kinder(kind(e, "functions"), "function")) {
+                    if (!f.getAttribute("name").isEmpty()) {
+                        fn.add(f.getAttribute("name"));
+                    }
+                }
+                fahrzeugFunktionen.put(e.getAttribute("name"), fn);
+            }
+        }
+        for (Element e : kinder(kind(items, "trains"), "train")) {
+            zugFunktionen.put(e.getAttribute("name"), funktionen(kind(e, "actions")));
+        }
+        for (Element e : kinder(kind(items, "train-routes"), "route")) {
+            routenFunktionen.put(e.getAttribute("name"), funktionen(e));
+        }
+        Map<String, String> arten = Map.of("feedbacks", "Rückmelder", "accessories", "Zubehör", "blocks", "Block",
+                "locomotives", "Lok", "wagons", "Wagen", "trains", "Zug", "train-routes", "Route", "actions", "Aktion",
+                "stations", "Bahnhof");
+        arten.forEach((liste, art) -> {
+            for (Element e : kinder(kind(items, liste), null)) {
+                String n = e.getAttribute("name");
+                if (!n.isEmpty() && !n.equals(n.strip())) {
+                    leerzeichenNamen.add(art + " '" + n + "'");
+                }
+            }
+        });
+        Collections.sort(leerzeichenNamen);
+    }
+
+    /** Namen aller train-function-Elemente unterhalb von e, in Dokumentreihenfolge. */
+    /** true, wenn mindestens ein Rückmeldungs-Offset (vorn oder hinten) ungleich 0 eingetragen ist. */
+    private static boolean offsetGesetzt(Element fb) {
+        for (Element o : kinder(fb, "offset")) {
+            for (String a : List.of("front", "rear", "front-left", "front-right", "rear-left", "rear-right")) {
+                Double d = o.hasAttribute(a) ? dezimal(o.getAttribute(a)) : null;
+                if (d != null && d != 0) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /** Gespeicherter Decoderwert (Registerkarte "Konfiguration"), null wenn nicht ausgelesen. */
+    private static Integer cv(Element lok, String nr) {
+        for (Element p : kinder(kind(lok, "configuration"), "parameter")) {
+            if (nr.equals(p.getAttribute("nr"))) {
+                return ganzzahl(p, "value");
+            }
+        }
+        return null;
+    }
+
+    private static Integer ganzzahl(Element e, String attr) {
+        if (e == null || !e.hasAttribute(attr)) {
+            return null;
+        }
+        Double d = dezimal(e.getAttribute(attr));
+        return d == null ? null : (int) Math.round(d);
+    }
+
+    private static List<String> funktionen(Element e) {
+        List<String> l = new ArrayList<>();
+        if (e == null) {
+            return l;
+        }
+        NodeList nl = e.getElementsByTagName("train-function");
+        for (int i = 0; i < nl.getLength(); i++) {
+            l.add(((Element) nl.item(i)).getAttribute("name"));
+        }
+        return l;
     }
 
     public static Anlage lies(Path tcd) throws IOException {

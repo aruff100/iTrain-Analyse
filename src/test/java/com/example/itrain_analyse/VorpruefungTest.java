@@ -111,7 +111,8 @@ class VorpruefungTest {
         assertEquals("A → B → C", r.tabelle().zeilen().get(0).get(3));
         Vorpruefung.Befund g = befund(e, "Route durch Erlaubnis gesperrt");
         assertEquals("R2", g.tabelle().zeilen().get(0).get(0));
-        assertEquals("Lok V100", g.tabelle().zeilen().get(0).get(4));
+        assertEquals("–", g.tabelle().zeilen().get(0).get(4));
+        assertEquals("Lok V100", g.tabelle().zeilen().get(0).get(5));
         assertTrue(befund(e, "Überflüssige Markierungen in Routen").text().contains("R1"));
         assertEquals(2, e.routenGeprueft());
     }
@@ -136,18 +137,18 @@ class VorpruefungTest {
                 .replace("<length unit=\"cm\">12.0</length>",
                         "<length unit=\"cm\">12.0</length><delay value=\"20000\" unit=\"ms\"/>")
                 .replace("<locomotives count=\"1\">", "<locomotives count=\"3\">"
-                        + "<locomotive name=\"BR 44\"><delay forward=\"1000\" backward=\"100\" unit=\"ms\"/></locomotive>"
-                        + "<locomotive name=\"V60\"><delay value=\"500\" unit=\"ms\"/></locomotive>");
+                        + "<locomotive name=\"BR 44\"><delay forward=\"1800\" backward=\"100\" unit=\"ms\"/></locomotive>"
+                        + "<locomotive name=\"V60\"><delay value=\"1500\" unit=\"ms\"/></locomotive>");
         Path f = dir.resolve("Test.tcd");
         Files.writeString(f, tcd, StandardCharsets.UTF_8);
         Vorpruefung.Ergebnis e = Vorpruefung.pruefe(Anlage.lies(f), true, true, true);
         Vorpruefung.Befund fehler = befund(e, "Reaktionsverzögerung über 2000 ms");
         assertEquals(Vorpruefung.Art.FEHLER, fehler.art());
         assertEquals(java.util.List.of("V100", "20000", "20000"), fehler.tabelle().zeilen().get(0));
-        Vorpruefung.Befund hoch = befund(e, "Reaktionsverzögerung über 500 ms");
+        Vorpruefung.Befund hoch = befund(e, "Reaktionsverzögerung über 1500 ms");
         assertEquals(Vorpruefung.Art.HINWEIS, hoch.art());
         assertEquals(1, hoch.tabelle().zeilen().size());
-        assertEquals(java.util.List.of("BR 44", "1000", "100"), hoch.tabelle().zeilen().get(0));
+        assertEquals(java.util.List.of("BR 44", "1800", "100"), hoch.tabelle().zeilen().get(0));
         Vorpruefung.Befund bs = befund(e, "Keine Bahnsteige eingetragen");
         assertEquals(2, bs.stufe());
         assertTrue(bs.text().contains("1 Bahnhofsblock)"));
@@ -173,6 +174,87 @@ class VorpruefungTest {
         assertEquals(java.util.List.of("D", "Nächste", "A (ohne Seite)", "A nennt D in keiner Richtung"),
                 v.tabelle().zeilen().get(0));
         assertFalse(v.text().contains("Block A nennt B"));
+    }
+
+    @Test
+    void signalfelderRelaisDoppelteAdresseInaktiveRoute(@TempDir Path dir) throws IOException {
+        String tcd = TCD.replace("<blocks count=\"4\">", "<accessories count=\"4\">"
+                        + "<signal name=\"S1\" type=\"de_hp0_1_2_sh1\"><interface name=\"Z21\" address=\"20\"/></signal>"
+                        + "<relay name=\"Merker\"><interface name=\"Z21\"/></relay>"
+                        + "<turnout name=\"W1\"><interface name=\"Z21\" address=\"7\"/><options/></turnout>"
+                        + "<turnout name=\"W2\"><interface name=\"Z21\" address=\"7\"/><options><option>addr_duplicate</option></options></turnout>"
+                        + "</accessories><blocks count=\"4\">")
+                .replace("<next><positions unit=\"cm\" clearance=\"0.0\" brake=\"10.0\" stop=\"-5.0\"><platform",
+                        "<next><shunt-signal name=\"S1\"/><signal name=\"S1\"/><positions unit=\"cm\" clearance=\"0.0\" brake=\"10.0\" stop=\"-5.0\"><platform")
+                .replace("<route name=\"R2\">", "<route name=\"R9\" active=\"false\"><items count=\"0\"/></route><route name=\"R2\">");
+        Path f = dir.resolve("Test.tcd");
+        Files.writeString(f, tcd, StandardCharsets.UTF_8);
+        Vorpruefung.Ergebnis e = Vorpruefung.pruefe(Anlage.lies(f), true, true, true);
+        Vorpruefung.Befund sf = befund(e, "Signal im falschen Feld des Blockeditors");
+        assertEquals(java.util.List.of("S1", "de_hp0_1_2_sh1", "A", "Nächste", "Rangiersignal",
+                "Mehrfach-Signal gehört nur in das Feld Hauptsignal"), sf.tabelle().zeilen().get(0));
+        assertEquals(1, sf.tabelle().zeilen().size());
+        assertEquals(0, befund(e, "Relais ohne Adresse").stufe());
+        assertTrue(befund(e, "Doppelte Zubehör-Adressen") == null);
+        assertTrue(e.ohneBefund().stream().anyMatch(o -> o.startsWith("1 inaktive Routen nicht geprüft: R9")));
+    }
+
+    @Test
+    void weiterePruefungenAusKiVergleich(@TempDir Path dir) throws IOException {
+        String tcd = TCD.replace("<prev><side-block name=\"A\" side=\"next\"/></prev>\n",
+                        "<prev><side-block name=\"A\" side=\"next\"/></prev>\n<options><option>short</option></options>\n")
+                .replace("<next><side-block><turnout name=\"W1\">",
+                        "<next><positions unit=\"cm\" clearance=\"0.0\" brake=\"80.0\" stop=\"40.0\"/><side-block><turnout name=\"W1\">")
+                .replace("<block name=\"D\" type=\"siding\">", "<block name=\"D\" type=\"siding\" active=\"false\">")
+                .replace("</blocks>", "<block name=\"E \"><length unit=\"cm\">50.0</length><prev/><next/></block></blocks>")
+                .replace("<permissions access-type", "<functions><function name=\"Licht\"/></functions><permissions access-type")
+                .replace("<routes count=\"1\"><route name=\"R2\"/></routes></train>",
+                        "<routes count=\"1\"><route name=\"R2\"/></routes><actions><start>"
+                                + "<train-function name=\"Pfeife\" state=\"on\"/><train-function name=\"Licht vorn\" state=\"on\"/>"
+                                + "</start></actions></train>");
+        Path f = dir.resolve("Test.tcd");
+        Files.writeString(f, tcd, StandardCharsets.UTF_8);
+        Vorpruefung.Ergebnis e = Vorpruefung.pruefe(Anlage.lies(f), true, true, true);
+        Vorpruefung.Befund fn = befund(e, "Funktionen in Aktionen, die kein Fahrzeug des Zuges hat");
+        assertEquals(java.util.List.of(java.util.List.of("Zug 1", "Pfeife", "Start/Stopp des Zuges")), fn.tabelle().zeilen());
+        Vorpruefung.Befund br = befund(e, "Bremsposition hinter oder auf der Stopp-Position");
+        assertEquals("B", br.tabelle().zeilen().get(0).get(0));
+        assertEquals(1, br.tabelle().zeilen().size());
+        Vorpruefung.Befund in = befund(e, "Routen mit inaktiven Blöcken");
+        assertEquals(1, in.stufe());
+        assertEquals("R2", in.tabelle().zeilen().get(0).get(0));
+        assertTrue(befund(e, "Blöcke ohne jede Verbindung").text().contains("E "));
+        assertTrue(befund(e, "Option \"Kurzer Block\" ohne NS- oder NMBS-Signale").text().contains("B"));
+        assertTrue(befund(e, "Namen mit Leerzeichen am Anfang oder Ende").text().contains("Block 'E '"));
+    }
+
+    @Test
+    void traegheitSchrittweiteOffset(@TempDir Path dir) throws IOException {
+        String tcd = TCD.replace("<length unit=\"cm\">12.0</length>",
+                "<decoder protocol=\"dcc\" steps=\"126\"/><configuration count=\"2\"><parameter nr=\"3\" value=\"60\" type=\"acceleration\"/>"
+                        + "<parameter nr=\"4\" value=\"11\" type=\"deceleration\"/></configuration><length unit=\"cm\">12.0</length>"
+                        + "<feedback count=\"1\" unit=\"cm\"><offset type=\"occupancy\" front=\"0.0\" rear=\"0.0\"/></feedback>"
+                        + "<acceleration delay=\"50\" unit=\"ms\" step=\"1\"/><deceleration delay=\"200\" unit=\"ms\" step=\"1\"/>"
+                        + "<speed-control count=\"1\" unit=\"km_h\"><speed step=\"1\" value=\"5\"/></speed-control>");
+        Path f = dir.resolve("Test.tcd");
+        Files.writeString(f, tcd, StandardCharsets.UTF_8);
+        Vorpruefung.Ergebnis e = Vorpruefung.pruefe(Anlage.lies(f), true, true, true);
+        assertEquals(java.util.List.of(java.util.List.of("V100", "50", "200")),
+                befund(e, "Trägheitssimulation unter 100 ms").tabelle().zeilen());
+        assertTrue(befund(e, "Kleine Stufenschrittweite bei 126 Fahrstufen") == null);
+        assertEquals(Vorpruefung.Art.FEHLER, befund(e, "Aktive Loks ohne Rückmeldungs-Offset").art());
+        assertTrue(befund(e, "Hohe Anfahr- und Bremsverzögerung im Decoder").text().contains("V100 (CV3=60, CV4=11)"));
+    }
+
+    @Test
+    void nurPunktmelderNurBeiITrain5(@TempDir Path dir) throws IOException {
+        String tcd = TCD.replace("<feedback name=\"M-B\" type=\"occupancy\">", "<feedback name=\"M-B\" type=\"reed\">");
+        Path f = dir.resolve("Test.tcd");
+        Files.writeString(f, tcd, StandardCharsets.UTF_8);
+        assertTrue(befund(Vorpruefung.pruefe(Anlage.lies(f), true, true, true), "Blöcke nur mit Punktmeldern") == null);
+        Files.writeString(f, tcd.replace("version=\"6.0.4-b300\"", "version=\"5.1.6\""), StandardCharsets.UTF_8);
+        Vorpruefung.Befund b = befund(Vorpruefung.pruefe(Anlage.lies(f), true, true, true), "Blöcke nur mit Punktmeldern");
+        assertTrue(b.text().endsWith(": B."));
     }
 
     @Test
