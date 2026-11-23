@@ -87,13 +87,21 @@ class VorpruefungTest {
     }
 
     @Test
-    void verzoegerungUnter250IstFehlerOhneEinIstKeinBefund(@TempDir Path dir) throws IOException {
+    void verzoegerungUnter100IstFehlerOhneEinIstKeinBefund(@TempDir Path dir) throws IOException {
+        // 200 ms liegt im üblichen Bereich 100–500 ms: kein Befund
         Vorpruefung.Ergebnis e = pruefe(dir);
-        Vorpruefung.Befund b = befund(e, "Ausschaltverzögerung unter 250 ms");
+        assertTrue(e.befunde().stream().noneMatch(x -> x.titel().startsWith("Ausschaltverzögerung")));
+        assertTrue(e.befunde().stream().noneMatch(x -> x.titel().startsWith("Einschaltverzögerung")));
+        Path f = dir.resolve("Kurz.tcd");
+        Files.writeString(f, TCD.replace("<feedback-delay off=\"200\" unit=\"ms\"/>", "<feedback-delay off=\"50\" unit=\"ms\"/>")
+                .replace("<feedback name=\"M-B\" type=\"occupancy\">",
+                        "<feedback name=\"M-B\" type=\"occupancy\"><delay off=\"600\" unit=\"ms\"/>"), StandardCharsets.UTF_8);
+        e = Vorpruefung.pruefe(Anlage.lies(f), true, true, true);
+        Vorpruefung.Befund b = befund(e, "Ausschaltverzögerung unter 100 ms");
         assertEquals(1, b.stufe());
         assertEquals(Vorpruefung.Art.FEHLER, b.art());
         assertEquals("0", b.tabelle().zeilen().get(0).get(2));
-        assertTrue(e.befunde().stream().noneMatch(x -> x.titel().startsWith("Einschaltverzögerung")));
+        assertEquals("600", befund(e, "Ausschaltverzögerung über 500 ms").tabelle().zeilen().get(0).get(3));
     }
 
     @Test
@@ -177,6 +185,43 @@ class VorpruefungTest {
     }
 
     @Test
+    void dinamoAnalogLokWeichenblockUndTaste(@TempDir Path dir) throws IOException {
+        String tcd = TCD.replace("<feedbacks count=\"2\">",
+                        "<feedbacks count=\"3\"><feedback name=\"T1\" type=\"button\"><interface name=\"Z21\"/></feedback>")
+                .replace("<blocks count=\"4\">", "<blocks count=\"5\"><block name=\"w18\" type=\"turnout\"><prev/><next/></block>")
+                .replace("<locomotive name=\"V100\" gauge=\"n\"><interface name=\"Z21\" address=\"3\"/>",
+                        "<locomotive name=\"V100\" gauge=\"n\"><interface name=\"Z21\"/><decoder protocol=\"analog\" steps=\"63\"/>");
+        Path f = dir.resolve("Test.tcd");
+        Files.writeString(f, tcd, StandardCharsets.UTF_8);
+        Vorpruefung.Ergebnis e = Vorpruefung.pruefe(Anlage.lies(f), true, true, true);
+        assertTrue(befund(e, "Aktive Loks ohne Adresse") == null);
+        assertTrue(befund(e, "Blöcke ohne Länge") == null);
+        assertTrue(befund(e, "Rückmelder ohne Adresse") == null);
+        assertEquals(Vorpruefung.Art.ANMERKUNG, befund(e, "Tasten und Sensoren ohne Adresse").art());
+    }
+
+    @Test
+    void bidibKnotenkennungUndZubehoerOhneAdresse(@TempDir Path dir) throws IOException {
+        String tcd = TCD.replace("<blocks count=\"4\">", "<accessories count=\"6\">"
+                        + "<relay name=\"R_KSM Wa\"><id>0xED1D00680D00DA00</id><interface name=\"BIDIB\" address=\"197\"/></relay>"
+                        + "<relay name=\"R_KSM Wi\"><id>0xED1D00680D00DA00</id><interface name=\"BIDIB\" address=\"193\"/></relay>"
+                        + "<sound name=\"Sound 1\" file=\"welcome.wav\"><interface name=\"Z21\"/></sound>"
+                        + "<turnout name=\"Kreuzung\" type=\"cross-fixed\"><interface name=\"Z21\"/></turnout>"
+                        + "<turnout name=\"W9\" type=\"left\"><interface name=\"Z21\"/></turnout>"
+                        + "<turnout name=\"W10\" type=\"left\"><interface name=\"Z21\"><address>70</address><address>71</address></interface></turnout>"
+                        + "</accessories><blocks count=\"4\">");
+        Path f = dir.resolve("Test.tcd");
+        Files.writeString(f, tcd, StandardCharsets.UTF_8);
+        Vorpruefung.Ergebnis e = Vorpruefung.pruefe(Anlage.lies(f), true, true, true);
+        assertTrue(befund(e, "Doppelte Zubehör-Adressen") == null);
+        Vorpruefung.Befund oa = befund(e, "Zubehör ohne Adresse");
+        assertEquals(Vorpruefung.Art.ANMERKUNG, oa.art());
+        assertTrue(oa.text().endsWith(": W9 (turnout)."));
+        assertEquals("70+71", Anlage.lies(f).zubehoer.stream().filter(z -> z.name().equals("W10")).findFirst()
+                .orElseThrow().adresse());
+    }
+
+    @Test
     void signalfelderRelaisDoppelteAdresseInaktiveRoute(@TempDir Path dir) throws IOException {
         String tcd = TCD.replace("<blocks count=\"4\">", "<accessories count=\"4\">"
                         + "<signal name=\"S1\" type=\"de_hp0_1_2_sh1\"><interface name=\"Z21\" address=\"20\"/></signal>"
@@ -211,6 +256,7 @@ class VorpruefungTest {
                 .replace("<routes count=\"1\"><route name=\"R2\"/></routes></train>",
                         "<routes count=\"1\"><route name=\"R2\"/></routes><actions><start>"
                                 + "<train-function name=\"Pfeife\" state=\"on\"/><train-function name=\"Licht vorn\" state=\"on\"/>"
+                                + "<train-function name=\"Glocke\" state=\"on\" active=\"false\"/>"
                                 + "</start></actions></train>");
         Path f = dir.resolve("Test.tcd");
         Files.writeString(f, tcd, StandardCharsets.UTF_8);
@@ -255,6 +301,41 @@ class VorpruefungTest {
         Files.writeString(f, tcd.replace("version=\"6.0.4-b300\"", "version=\"5.1.6\""), StandardCharsets.UTF_8);
         Vorpruefung.Befund b = befund(Vorpruefung.pruefe(Anlage.lies(f), true, true, true), "Blöcke nur mit Punktmeldern");
         assertTrue(b.text().endsWith(": B."));
+    }
+
+    @Test
+    void pruefungenAusKatoAnalyse(@TempDir Path dir) throws IOException {
+        StringBuilder bloecke = new StringBuilder();
+        for (int i = 1; i <= 6; i++) {
+            bloecke.append("<block name=\"E").append(i).append("\" polarity=\"normal\"/>");
+        }
+        bloecke.append("<block name=\"F\" polarity=\"unknown\"/><block name=\"Kehrschleife\" polarity=\"unknown\"/>")
+                .append("<block name=\"G\" type=\"station\"/>");
+        String tcd = TCD.replace("<train gauge=\"n\"/>",
+                        "<train gauge=\"n\"><options><option>correct_with_railcom</option></options></train>")
+                .replace("</blocks>", bloecke + "</blocks>")
+                .replace("<block name=\"D\" type=\"siding\"><length unit=\"cm\">60.0</length>",
+                        "<block name=\"D\" type=\"siding\"><length unit=\"cm\">60.0</length>"
+                                + "<options><option>no_dir_change</option></options>")
+                .replace("<permissions access-type", "<functions><function name=\"Licht\"/></functions><permissions access-type")
+                .replace("</control-items>", "<actions count=\"3\">"
+                        + "<action name=\"Mühle\"><condition><random percentage=\"50\"/></condition><items/></action>"
+                        + "<action name=\"Burg\"><items><action name=\"Burg\"/></items></action>"
+                        + "<action name=\"Pfiff\"><items><locomotive-function name=\"Pfeife\" state=\"on\">"
+                        + "<locomotive name=\"V100\"/></locomotive-function></items></action>"
+                        + "</actions></control-items>");
+        Path f = dir.resolve("Test.tcd");
+        Files.writeString(f, tcd, StandardCharsets.UTF_8);
+        Vorpruefung.Ergebnis e = Vorpruefung.pruefe(Anlage.lies(f), true, true, true);
+        assertTrue(befund(e, "„Zufällig“ als einzige Bedingung").text().endsWith(": Mühle."));
+        assertTrue(befund(e, "Aktion ruft sich selbst auf").text().endsWith(": Burg."));
+        assertTrue(befund(e, "Polarität „Unbekannt“ bei aktiver RailCom-Korrektur").text().endsWith(": F."));
+        assertTrue(befund(e, "Stumpfgleis mit „Richtungswechsel verboten“").text().endsWith(": D."));
+        Vorpruefung.Befund bs = befund(e, "Bahnhofsblöcke ohne Bahnsteig");
+        assertEquals(Vorpruefung.Art.ANMERKUNG, bs.art());
+        assertTrue(bs.text().endsWith(": G."));
+        assertTrue(befund(e, "Funktionen in Aktionen, die kein Fahrzeug des Zuges hat").tabelle().zeilen()
+                .contains(java.util.List.of("Lok V100", "Pfeife", "Aktion „Pfiff“")));
     }
 
     @Test

@@ -70,6 +70,9 @@ public final class Vorpruefung {
     }
 
     /** Reaktionsverzögerung (ms): darüber Fehler bzw. Hinweis (Anwender 18.11.2026, Hinweis ab 1500 ms seit 20.11.2026). */
+    /** Ausschaltverzögerung (ms): üblicher Bereich laut Handbuch S. 34 (Anwender 21.11.2026). */
+    static final int AUS_MIN = 100;
+    static final int AUS_MAX = 500;
     static final int REAKTION_FEHLER = 2000;
     static final int REAKTION_HINWEIS = 1500;
 
@@ -86,6 +89,7 @@ public final class Vorpruefung {
         v.fahrzeuge();
         v.signalfelder();
         v.weiterePruefungen();
+        v.pruefungenAusKatoAnalyse();
         int routen = v.routen();
         Tabelle zt = null;
         List<String> zh = new ArrayList<>();
@@ -159,9 +163,9 @@ public final class Vorpruefung {
                     aus == null ? "?" : String.valueOf(aus));
             if (aus == null) {
                 unbekannt.merge(m.schnittstelle() == null ? "–" : m.schnittstelle(), 1, Integer::sum);
-            } else if (aus < 250) {
+            } else if (aus < AUS_MIN) {
                 kurz.computeIfAbsent(z, k -> new ArrayList<>()).add(m.name());
-            } else if (aus > 250) {
+            } else if (aus > AUS_MAX) {
                 lang.computeIfAbsent(z, k -> new ArrayList<>()).add(m.name());
             }
             if (einWert >= 50) {
@@ -176,19 +180,22 @@ public final class Vorpruefung {
                 "Action: \"Edit\" > \"Interfaces\" > interface, section \"Feedbacks\" (not \"Accessories\"); "
                         + "own value in the feedback dialog.");
         if (!kurz.isEmpty()) {
-            befund(1, Art.FEHLER, t("Ausschaltverzögerung unter 250 ms", "Switch-off delay below 250 ms"),
-                    t(anzahl(kurz) + " Rückmelder haben eine Ausschaltverzögerung unter dem Standardwert 250 ms. "
-                            + "Das Handbuch nennt 100–500 ms als übliche Werte. ",
-                            anzahl(kurz) + " feedbacks have a switch-off delay below the default 250 ms. The manual "
-                                    + "gives 100–500 ms as usual values. ") + ort,
+            befund(1, Art.FEHLER, t("Ausschaltverzögerung unter 100 ms", "Switch-off delay below 100 ms"),
+                    t(anzahl(kurz) + " Rückmelder haben eine Ausschaltverzögerung unter 100 ms. Das Handbuch nennt "
+                            + "100–500 ms als übliche Werte (Standard 250 ms); kürzere Werte melden schon bei kurzem "
+                            + "Kontaktverlust einen Block frei. ",
+                            anzahl(kurz) + " feedbacks have a switch-off delay below 100 ms. The manual gives "
+                                    + "100–500 ms as usual values (default 250 ms); shorter values report a block "
+                                    + "free even on a brief loss of contact. ") + ort,
                     "S. 34, S. 94", false, new Tabelle(kopf, gruppen(kurz)));
         }
         if (!lang.isEmpty()) {
-            befund(2, Art.HINWEIS, t("Ausschaltverzögerung über 250 ms", "Switch-off delay above 250 ms"),
-                    t(anzahl(lang) + " Rückmelder haben eine Ausschaltverzögerung über 250 ms. Das Handbuch nennt "
-                            + "100–500 ms als übliche Werte. ",
-                            anzahl(lang) + " feedbacks have a switch-off delay above 250 ms. The manual gives "
-                                    + "100–500 ms as usual values. ") + ort,
+            befund(2, Art.HINWEIS, t("Ausschaltverzögerung über 500 ms", "Switch-off delay above 500 ms"),
+                    t(anzahl(lang) + " Rückmelder haben eine Ausschaltverzögerung über 500 ms. Das Handbuch nennt "
+                            + "100–500 ms als übliche Werte (Standard 250 ms); längere Werte geben Blöcke spät frei. ",
+                            anzahl(lang) + " feedbacks have a switch-off delay above 500 ms. The manual gives "
+                                    + "100–500 ms as usual values (default 250 ms); longer values release blocks "
+                                    + "late. ") + ort,
                     "S. 34, S. 94", false, new Tabelle(kopf, gruppen(lang)));
         }
         if (!ein.isEmpty()) {
@@ -242,11 +249,15 @@ public final class Vorpruefung {
 
     private void melder() {
         List<String> ohneAdresse = new ArrayList<>();
+        List<String> sonstigeOhneAdresse = new ArrayList<>();
         Map<String, List<String>> adressen = new LinkedHashMap<>();
         for (Anlage.Melder m : a.melder) {
             if (m.adresse() == null) {
                 if (brauchtAdresse(m.schnittstelle())) {
-                    ohneAdresse.add(m.name());
+                    // Tasten und Sensoren ohne Adresse werden oft nur von Aktionen gesetzt
+                    (m.typ() == null || m.typ().equals("occupancy") ? ohneAdresse : sonstigeOhneAdresse)
+                            .add(m.typ() == null || m.typ().equals("occupancy") ? m.name()
+                                    : m.name() + " (" + m.typ() + ")");
                 }
             } else {
                 adressen.computeIfAbsent(m.schnittstelle() + " | " + m.adresse(), k -> new ArrayList<>())
@@ -258,6 +269,14 @@ public final class Vorpruefung {
                     t(ohneAdresse.size() + " Rückmelder haben eine Schnittstelle, aber keine Adresse: ",
                             ohneAdresse.size() + " feedbacks have an interface but no address: ")
                             + liste(ohneAdresse) + ".", "S. 93", false, null);
+        }
+        if (!sonstigeOhneAdresse.isEmpty()) {
+            befund(0, Art.ANMERKUNG, t("Tasten und Sensoren ohne Adresse", "Buttons and sensors without address"),
+                    t("Diese Rückmelder sind keine Belegtmelder und haben keine Adresse. Werden sie nur von Aktionen "
+                            + "gesetzt, ist das richtig; gibt es sie auf der Anlage, die Adresse eintragen: ",
+                            "These feedbacks are not occupancy feedbacks and have no address. If they are only set by "
+                                    + "actions, that is correct; if they exist on the layout, enter the address: ")
+                            + liste(sonstigeOhneAdresse) + ".", "S. 93", false, null);
         }
         doppelt(adressen, 2, t("Doppelte Rückmelder-Adressen", "Duplicate feedback addresses"),
                 t("Rückmelder", "Feedbacks"), "S. 93");
@@ -362,7 +381,9 @@ public final class Vorpruefung {
                         handweichen.add(z.name());
                     }
                 } else if (brauchtAdresse(z.schnittstelle()) && !z.art().equals("signal")
-                        && !z.art().equals("aspect")) {
+                        && !z.art().equals("aspect") && !z.datei() && !"cross-fixed".equals(z.typ())) {
+                    // Sound mit Audiodatei und feste Kreuzung brauchen nie eine Adresse; die Schnittstelle trägt
+                    // iTrain bei jedem Objekt selbst ein (LudwigR, Forum 20.11.2026).
                     // Relais ohne Adresse sind meist Merker für Aktionen (Anwender 20.11.2026)
                     (z.art().equals("relay") ? relaisOhneAdresse : ohneAdresse).add(z.name() + " (" + z.art() + ")");
                 }
@@ -385,10 +406,13 @@ public final class Vorpruefung {
                             + liste(relaisOhneAdresse) + ".", "S. 95", false, null);
         }
         if (!ohneAdresse.isEmpty()) {
-            befund(4, Art.HINWEIS, t("Zubehör ohne Adresse", "Accessories without address"),
-                    t(ohneAdresse.size() + " Zubehörteile haben eine Schnittstelle, aber keine Adresse: ",
-                            ohneAdresse.size() + " accessories have an interface but no address: ")
-                            + liste(ohneAdresse) + ".", "S. 95", false, null);
+            befund(0, Art.ANMERKUNG, t("Zubehör ohne Adresse", "Accessories without address"),
+                    t("Zubehör braucht nur dann eine Adresse, wenn es Hardware auf der Anlage schaltet. Die "
+                            + "Schnittstelle trägt iTrain bei jedem Objekt selbst ein. Gibt es diese Objekte auf der "
+                            + "Anlage, die Adresse eintragen: ",
+                            "Accessories only need an address if they switch hardware on the layout. iTrain enters "
+                                    + "the interface for every object itself. If these objects exist on the layout, "
+                                    + "enter the address: ") + liste(ohneAdresse) + ".", "S. 95", false, null);
         }
         if (!handweichen.isEmpty()) {
             befund(0, Art.ANMERKUNG, t("Weichen ohne Schnittstelle", "Turnouts without interface"),
@@ -439,13 +463,17 @@ public final class Vorpruefung {
         a.melder.forEach(m -> mi.put(m.name(), m));
         for (Anlage.Block b : a.bloecke.values()) {
             Double l = b.laenge();
+            // Typ "Weiche": Blockausgang versorgt nur eine Weiche (Dinamo), Länge ohne Bedeutung (Handbuch S. 111)
+            boolean weichenblock = "turnout".equals(b.typ());
             if (l == null || l <= 0) {
-                ohneLaenge.add(b.name());
+                if (!weichenblock) {
+                    ohneLaenge.add(b.name());
+                }
             } else if (median > 0 && l >= 10 * median && l >= 500) {
                 ausreisser.add(b.name() + " (" + zahl(l) + " cm)");
             }
             // Summe der Melderlängen
-            if (l != null && l > 0 && !b.melder().isEmpty()) {
+            if (l != null && l > 0 && !b.melder().isEmpty() && !weichenblock) {
                 double summe = 0;
                 boolean alle = true;
                 for (Anlage.BlockMelder bm : b.melder()) {
@@ -627,7 +655,8 @@ public final class Vorpruefung {
                 lokAdressen.computeIfAbsent(l.schnittstelle() + " | " + l.adresse(), k -> new ArrayList<>())
                         .add(l.name());
             }
-            if (l.adresse() == null && brauchtAdresse(l.schnittstelle())) {
+            // Analoge Loks (Dinamo) haben keine Adresse, nur optional eine Pseudo-Adresse (Handbuch S. 44)
+            if (l.adresse() == null && !l.analog() && brauchtAdresse(l.schnittstelle())) {
                 ohneAdresse.add(l.name());
             }
             if (l.laenge() == null || l.laenge() <= 0) {
@@ -1074,6 +1103,132 @@ public final class Vorpruefung {
         }
     }
 
+    // --- Prüfungen aus der Analyse der Kato-Anlage (Forum, Anwender 23.11.2026) -------------------------------------
+
+    /** "side-warning-signal:Name" als "Name (Vorsignal, Abschnitt Block)". */
+    private String signalfeld(String eintrag) {
+        int k = eintrag.indexOf(':');
+        if (k < 0) {
+            return eintrag;
+        }
+        String feld = switch (eintrag.substring(0, k)) {
+            case "signal" -> t("Hauptsignal", "main signal");
+            case "shunt-signal" -> t("Rangiersignal", "shunt signal");
+            case "warning-signal" -> t("Vorsignal, Abschnitt Signal", "distant signal, section Signal");
+            case "side-warning-signal" -> t("Vorsignal, Abschnitt Block", "distant signal, section Block");
+            default -> eintrag.substring(0, k);
+        };
+        return eintrag.substring(k + 1) + " (" + feld + ")";
+    }
+
+    void pruefungenAusKatoAnalyse() {
+        // Aktion nur mit "Zufällig": reine Vergleichsbedingung, löst allein nicht aus (Handbuch S. 168)
+        if (!a.aktionenNurZufall.isEmpty()) {
+            befund(4, Art.HINWEIS, t("„Zufällig“ als einzige Bedingung", "“Random” as the only condition"),
+                    t("„Zufällig“ ist eine Vergleichsbedingung für eine UND-Gruppe; allein löst sie die Aktion nicht "
+                            + "aus. Handlung: einen Auslöser ergänzen (z. B. Bedingung „Block“ mit Zustand „Einfahren“) "
+                            + "und „Zufällig“ mit ihm in eine UND-Gruppe setzen: ",
+                            "“Random” is a comparison condition for an AND group; on its own it does not trigger the "
+                                    + "action. Action: add a trigger (e.g. condition “Block” with state “Enter”) and "
+                                    + "put “Random” in an AND group with it: ") + liste(a.aktionenNurZufall) + ".",
+                    "S. 168", false, null);
+        }
+        // Aktion ruft sich selbst auf (Handbuch S. 180: "Aktion ausführen" fügt die Zeilen der Aktion ein)
+        if (!a.aktionenSelbstaufruf.isEmpty()) {
+            befund(4, Art.HINWEIS, t("Aktion ruft sich selbst auf", "Action calls itself"),
+                    t("Diese Aktionen enthalten „Aktion ausführen“ mit sich selbst. Der Schritt fügt die Zeilen der "
+                            + "genannten Aktion ein; eine Aktion, die sich selbst einfügt, hat keinen sinnvollen "
+                            + "Ablauf. Handlung: den Schritt durch die gewünschten Schritte ersetzen: ",
+                            "These actions contain “Execute action” with themselves. The step inserts the lines of "
+                                    + "the named action; an action that inserts itself has no meaningful sequence. "
+                                    + "Action: replace the step with the intended steps: ")
+                            + liste(a.aktionenSelbstaufruf) + ".", "S. 180", false, null);
+        }
+        // Bahnhofsblöcke ohne Bahnsteig, wenn die Anlage Bahnsteige hat (Handbuch S. 55, S. 121)
+        boolean mitBahnsteig = a.bloecke.values().stream()
+                .anyMatch(b -> b.prev().bahnsteig() != null || b.next().bahnsteig() != null);
+        if (mitBahnsteig) {
+            List<String> ohne = new ArrayList<>();
+            for (Anlage.Block b : a.bloecke.values()) {
+                if (b.aktiv() && "station".equals(b.typ()) && b.prev().bahnsteig() == null
+                        && b.next().bahnsteig() == null) {
+                    ohne.add(b.name());
+                }
+            }
+            if (!ohne.isEmpty()) {
+                befund(0, Art.ANMERKUNG, t("Bahnhofsblöcke ohne Bahnsteig", "Station blocks without platform"),
+                        t("Die Anlage hat Bahnsteige, diese Blöcke vom Typ „Bahnhof“ aber in keiner Richtung. Ohne "
+                                + "Bahnsteig halten die Züge an der Stopp-Position. Schatten- und Abstellgleise können "
+                                + "bewusst ohne Bahnsteig sein. Handlung: im Blockeditor unter „Bahnsteig“ je "
+                                + "Richtung Anfang und Länge eintragen: ",
+                                "The layout has platforms, but these blocks of type “Station” have none in either "
+                                        + "direction. Without a platform trains stop at the stop position. Fiddle "
+                                        + "yard and storage tracks may be without platform on purpose. Action: enter "
+                                        + "start and length under “Platform” per direction in the block editor: ")
+                                + liste(ohne) + ".", "S. 55, S. 121", false, null);
+            }
+        }
+        // Polarität "Unbekannt" bei aktiver RailCom-Korrektur (Handbuch S. 29, S. 112–113)
+        if (a.railcomKorrektur) {
+            List<String> unbekannt = new ArrayList<>();
+            int bekannt = 0;
+            for (Anlage.Block b : a.bloecke.values()) {
+                if (!b.aktiv() || b.polaritaet() == null) {
+                    continue;
+                }
+                String kl = b.name().toLowerCase(Locale.ROOT);
+                boolean umgepolt = List.of("kehr", "dreieck", "dreh", "schleife", "loop", "turn", "wende")
+                        .stream().anyMatch(kl::contains);
+                if (b.polaritaet().equals("unknown") && !umgepolt) {
+                    unbekannt.add(b.name());
+                } else {
+                    bekannt++;
+                }
+            }
+            // Nur einzelne Ausreißer: Viele Blöcke mit "Unbekannt" sind meist gewollt (Kehrschleifen, Abstellgleise).
+            if (!unbekannt.isEmpty() && unbekannt.size() <= 2 && bekannt > 5) {
+                befund(2, Art.HINWEIS, t("Polarität „Unbekannt“ bei aktiver RailCom-Korrektur",
+                        "Polarity “Unknown” with RailCom correction active"),
+                        t("Die Zugoption „Korrigiere Züge basierend auf RailCom“ ist aktiv, und die meisten Blöcke "
+                                + "haben eine Polarität. In diesen Blöcken steht „Unbekannt“; dort wertet iTrain die "
+                                + "RailCom-Richtung nicht aus. Handlung: Verdrahtung prüfen und die Polarität im "
+                                + "Blockeditor setzen, sofern der Block nicht automatisch umgepolt wird (Kehrschleife, "
+                                + "Drehscheibe): ",
+                                "The train option “Correct trains based on RailCom” is active and most blocks have a "
+                                        + "polarity. These blocks have “Unknown”; iTrain does not evaluate the "
+                                        + "RailCom direction there. Action: check the wiring and set the polarity in "
+                                        + "the block editor, unless the block is switched automatically (reversing "
+                                        + "loop, turntable): ") + liste(unbekannt) + ".",
+                        "S. 29, S. 112–113", true, null);
+            }
+        }
+        // Signale in der Richtung "Vorherige" von Blöcken mit Richtung "Einzeln" werden nicht geprüft: Im Korpus hat die
+        // Hälfte der Anlagen solche Einträge, auch bei Rangierblöcken, die in beiden Richtungen befahren werden
+        // (Korpus 23.11.2026). Die Signalprüfung der KI (Zusatz 3) bewertet sie im Zusammenhang.
+        // Stumpfgleis mit "Richtungswechsel verboten" (Handbuch S. 112)
+        List<String> stumpf = new ArrayList<>();
+        for (Anlage.Block b : a.bloecke.values()) {
+            boolean p = !b.prev().nachbarn().isEmpty();
+            boolean n = !b.next().nachbarn().isEmpty();
+            if (b.aktiv() && !b.nurNaechste() && b.richtungswechselVerboten() && p != n) {
+                stumpf.add(b.name());
+            }
+        }
+        if (!stumpf.isEmpty()) {
+            befund(4, Art.HINWEIS, t("Stumpfgleis mit „Richtungswechsel verboten“",
+                    "Dead end with “Direction change forbidden”"),
+                    t("Diese Blöcke haben nur auf einer Seite Nachbarn. Ein Zug kann sie nur mit Richtungswechsel "
+                            + "wieder verlassen, die Option verbietet das aber; im Automatikbetrieb bleibt er stehen. "
+                            + "Handlung: die Option entfernen, wenn Züge dort wenden sollen: ",
+                            "These blocks have neighbours on one side only. A train can only leave them with a "
+                                    + "direction change, which the option forbids; in automatic mode it stays. "
+                                    + "Action: remove the option if trains should reverse there: ") + liste(stumpf)
+                            + ".", "S. 112", true, null);
+        }
+        // Zugposition hinter dem Blockende im gespeicherten Zustand wird nicht geprüft: Im Korpus stehen 13 % aller
+        // aufgestellten Züge so, die Position ist offenbar kein Maß innerhalb des Blocks (Korpus 23.11.2026).
+    }
+
     // --- Weitere Prüfungen aus dem Vergleich mit KI-Analysen (Anwender 20.11.2026) -----------------------------------
 
     /** Funktionen, die iTrain 6 beim Anlegen eines Zuges in Start und Stopp einträgt (Korpus 20.11.2026). */
@@ -1122,6 +1277,19 @@ public final class Vorpruefung {
             stellen.forEach((f, st) -> fehlend.add(List.of(z.name(),
                     f.isEmpty() ? t("(ohne Namen)", "(no name)") : f, String.join(", ", st))));
         }
+        // Lok-Funktionsschritte in Aktionen ("Lokomotive Funktion" mit genannter Lok)
+        Map<List<String>, Set<String>> lokStellen = new LinkedHashMap<>();
+        for (List<String> x : a.lokAktionFunktionen) {
+            Anlage.Lok lok = a.loks.get(x.get(1));
+            Set<String> hat = a.fahrzeugFunktionen.get(x.get(1));
+            if (lok == null || !lok.aktiv() || hat == null || hat.isEmpty() || hat.contains(x.get(2))) {
+                continue;
+            }
+            lokStellen.computeIfAbsent(List.of(x.get(1), x.get(2)), k -> new LinkedHashSet<>())
+                    .add(t("Aktion „", "action “") + x.get(0) + t("“", "”"));
+        }
+        lokStellen.forEach((k, st) -> fehlend.add(List.of(t("Lok ", "Locomotive ") + k.get(0),
+                k.get(1).isEmpty() ? t("(ohne Namen)", "(no name)") : k.get(1), String.join(", ", st))));
         if (!fehlend.isEmpty()) {
             befund(3, Art.HINWEIS, t("Funktionen in Aktionen, die kein Fahrzeug des Zuges hat",
                     "Functions in actions that no vehicle of the train has"),
@@ -1131,8 +1299,8 @@ public final class Vorpruefung {
                             "Actions with functions that the train's locomotives and wagons do not have are not "
                                     + "carried out. Action: choose the matching function in the train or route "
                                     + "editor, or assign it to the locomotive or wagon."),
-                    "S. 58", false, new Tabelle(List.of(t("Zug", "Train"), t("Funktion", "Function"),
-                            t("Stelle", "Place")), fehlend));
+                    "S. 58", false, new Tabelle(List.of(t("Zug / Lok", "Train / locomotive"),
+                            t("Funktion", "Function"), t("Stelle", "Place")), fehlend));
         }
         // Bremsposition hinter oder auf der Stopp-Position (Handbuch S. 117)
         List<List<String>> bremse = new ArrayList<>();
@@ -1703,10 +1871,10 @@ public final class Vorpruefung {
             e.bahnsteigHinweise().forEach(h -> sb.append(h).append('\n'));
         }
         sb.append('\n').append(de ? "NICHT IM PROGRAMM GEPRÜFT (Aufgabe der KI): Zugoptionen und Eventintervalle, "
-                + "Release Notes, Aktionen, \"Kritisch\" an Blöcken, Blocktyp und Blockoptionen im Zusammenhang, Weichen-"
+                + "Release Notes, Aktionen (außer Funktionen, \"Zufällig\" allein und Selbstaufruf), \"Kritisch\" an Blöcken, Blocktyp und Blockoptionen im Zusammenhang, Weichen-"
                 + "Belegtmelder, Geschwindigkeitsprofile fachlich, Zusatz 3 Signale (außer Feld im Blockeditor), Zusatzauftrag.\n"
                 : "NOT CHECKED BY THE PROGRAM (task of the AI): train options and event intervals, release notes, "
-                        + "actions, \"Critical\" on blocks, block type and block options in context, turnout occupancy "
+                        + "actions (except functions, \"Random\" alone and self-calls), \"Critical\" on blocks, block type and block options in context, turnout occupancy "
                         + "feedbacks, speed profiles, extra 3 signals (except block field), additional task.\n");
         return sb.toString();
     }

@@ -38,8 +38,9 @@ public final class Anlage {
     }
 
     /** Zubehör (Weiche, Signal, Relais …); adresse null, wenn keine eingetragen ist. */
+    /** datei: Sound mit eigener Audiodatei (spielt der Rechner ab, braucht keine Adresse). */
     public record Zubehoer(String art, String name, String typ, String schnittstelle, String adresse,
-            Set<String> optionen) {
+            Set<String> optionen, boolean datei) {
     }
 
     /** Nachbarblock in einer Blockrichtung: Name und die Seite des Nachbarn, die anliegt (prev/next/both/null). */
@@ -59,8 +60,17 @@ public final class Anlage {
     public record BlockMelder(String name, Double position) {
     }
 
+    /**
+     * richtungsart: Attribut direction ("single" = nur Richtung "Nächste" befahrbar, Handbuch S. 112),
+     * polaritaet: Attribut polarity ("normal", "inverted", "unknown"), beide null wenn nicht in der Datei.
+     */
     public record Block(String name, String typ, String spurweite, boolean aktiv, Double laenge,
-            List<BlockMelder> melder, Richtung prev, Richtung next, Set<String> optionen) {
+            List<BlockMelder> melder, Richtung prev, Richtung next, Set<String> optionen, String richtungsart,
+            String polaritaet) {
+
+        public boolean nurNaechste() {
+            return "single".equals(richtungsart);
+        }
 
         public Richtung richtung(String seite) {
             return "prev".equals(seite) ? prev : next;
@@ -101,7 +111,7 @@ public final class Anlage {
     public record Lok(String name, boolean aktiv, String spurweite, String typ, String schnittstelle,
             String adresse, Double laenge, int fahrstufen, boolean offsetVorhanden, Erlaubnis erlaubnis,
             Integer reaktionVor, Integer reaktionRueck, Integer decoderStufen, Integer traegheitAnfahren,
-            Integer traegheitBremsen, Integer schrittweite, Integer cv3, Integer cv4) {
+            Integer traegheitBremsen, Integer schrittweite, Integer cv3, Integer cv4, boolean analog) {
 
         /** Größere der beiden Reaktionsverzögerungen in ms, null wenn nicht in der Datei. */
         public Integer reaktionMax() {
@@ -159,6 +169,14 @@ public final class Anlage {
     public final Map<String, List<String>> routenFunktionen = new LinkedHashMap<>();
     /** Objektnamen mit Leerzeichen am Anfang oder Ende, als "Art: 'Name'". */
     public final List<String> leerzeichenNamen = new ArrayList<>();
+    /** Zugoption "Korrigiere Züge basierend auf RailCom" (settings/train/options). */
+    public final boolean railcomKorrektur;
+    /** Aktiv geschaltete Aktionen, deren Bedingung nur aus "Zufällig" besteht. */
+    public final List<String> aktionenNurZufall = new ArrayList<>();
+    /** Aktionen, die sich mit "Aktion ausführen" selbst aufrufen. */
+    public final List<String> aktionenSelbstaufruf = new ArrayList<>();
+    /** Lok-Funktionsschritte in Aktionen: Aktion, Lok, Funktion (nur mit genannter Lok, nur aktive Zeilen). */
+    public final List<List<String>> lokAktionFunktionen = new ArrayList<>();
 
     private Anlage(String datei, Element wurzel) {
         this.datei = datei;
@@ -167,6 +185,7 @@ public final class Anlage {
         this.massstab = settings == null ? null : text(kind(settings, "scale"));
         Element zug = settings == null ? null : kind(settings, "train");
         this.spurweite = zug == null ? null : leer(zug.getAttribute("gauge"));
+        this.railcomKorrektur = zug != null && optionen(zug).contains("correct_with_railcom");
         Element items = kind(wurzel, "control-items");
         if (items == null) {
             this.aktionen = 0;
@@ -189,7 +208,8 @@ public final class Anlage {
         for (Element e : kinder(kind(items, "accessories"), null)) {
             Element i = kind(e, "interface");
             zubehoer.add(new Zubehoer(e.getTagName(), e.getAttribute("name"), leer(e.getAttribute("type")),
-                    i == null ? null : leer(i.getAttribute("name")), adresse(e, i), optionen(e)));
+                    i == null ? null : leer(i.getAttribute("name")), adresse(e, i), optionen(e),
+                    !e.getAttribute("file").isEmpty()));
         }
         for (Element e : kinder(kind(items, "blocks"), "block")) {
             List<BlockMelder> bm = new ArrayList<>();
@@ -198,7 +218,8 @@ public final class Anlage {
             }
             Block b = new Block(e.getAttribute("name"), leer(e.getAttribute("type")), leer(e.getAttribute("gauge")),
                     !"false".equals(e.getAttribute("active")), laenge(e), bm, richtung(kind(e, "prev"), "prev"),
-                    richtung(kind(e, "next"), "next"), optionen(e));
+                    richtung(kind(e, "next"), "next"), optionen(e), leer(e.getAttribute("direction")),
+                    leer(e.getAttribute("polarity")));
             bloecke.put(b.name(), b);
         }
         for (Element e : kinder(kind(items, "stations"), "station")) {
@@ -220,7 +241,8 @@ public final class Anlage {
                     erlaubnis(e), reaktion(rv, "forward"), reaktion(rv, "backward"),
                     ganzzahl(kind(e, "decoder"), "steps"), ganzzahl(kind(e, "acceleration"), "delay"),
                     ganzzahl(kind(e, "deceleration"), "delay"), ganzzahl(kind(e, "acceleration"), "step"),
-                    cv(e, "3"), cv(e, "4")));
+                    cv(e, "3"), cv(e, "4"),
+                    kind(e, "decoder") != null && "analog".equals(kind(e, "decoder").getAttribute("protocol"))));
         }
         for (Element e : kinder(kind(items, "wagons"), "wagon")) {
             wagen.put(e.getAttribute("name"), new Wagen(e.getAttribute("name"),
@@ -288,11 +310,48 @@ public final class Anlage {
                     optionen(e)));
         }
         this.aktionen = kinder(kind(items, "actions"), "action").size();
+        for (Element ak : kinder(kind(items, "actions"), "action")) {
+            String an = ak.getAttribute("name");
+            Element bed = kind(ak, "condition");
+            if (bed != null) {
+                List<String> arten = new ArrayList<>();
+                NodeList alle = bed.getElementsByTagName("*");
+                for (int i = 0; i < alle.getLength(); i++) {
+                    Element c = (Element) alle.item(i);
+                    String tg = c.getTagName();
+                    if (!List.of("and", "or", "not").contains(tg) && c.getParentNode() instanceof Element pe
+                            && (pe == bed || List.of("and", "or", "not").contains(pe.getTagName()))
+                            && aktiv(c, bed)) {
+                        arten.add(tg);
+                    }
+                }
+                if (!arten.isEmpty() && arten.stream().allMatch("random"::equals)) {
+                    aktionenNurZufall.add(an);
+                }
+            }
+            NodeList schritte = ak.getElementsByTagName("action");
+            for (int i = 0; i < schritte.getLength(); i++) {
+                Element x = (Element) schritte.item(i);
+                if (an.equals(x.getAttribute("name")) && aktiv(x, ak)) {
+                    aktionenSelbstaufruf.add(an);
+                    break;
+                }
+            }
+            NodeList lf = ak.getElementsByTagName("locomotive-function");
+            for (int i = 0; i < lf.getLength(); i++) {
+                Element x = (Element) lf.item(i);
+                Element lok = kind(x, "locomotive");
+                if (lok != null && !lok.getAttribute("name").isEmpty() && aktiv(x, ak)) {
+                    lokAktionFunktionen.add(List.of(an, lok.getAttribute("name"), x.getAttribute("name")));
+                }
+            }
+        }
         for (String liste : List.of("locomotives", "wagons")) {
             for (Element e : kinder(kind(items, liste), null)) {
                 Set<String> fn = new HashSet<>();
                 for (Element f : kinder(kind(e, "functions"), "function")) {
-                    if (!f.getAttribute("name").isEmpty()) {
+                    // inaktive Funktionen zählen nicht (Release Notes 6.0.2)
+                    if (!f.getAttribute("name").isEmpty() && !"false".equals(f.getAttribute("active"))) {
                         fn.add(f.getAttribute("name"));
                     }
                 }
@@ -358,9 +417,28 @@ public final class Anlage {
         }
         NodeList nl = e.getElementsByTagName("train-function");
         for (int i = 0; i < nl.getLength(); i++) {
-            l.add(((Element) nl.item(i)).getAttribute("name"));
+            Element f = (Element) nl.item(i);
+            if (aktiv(f, e)) {
+                l.add(f.getAttribute("name"));
+            }
         }
         return l;
+    }
+
+    /**
+     * false, wenn das Element oder ein umgebendes Element bis {@code bis} mit active="false" abgeschaltet ist
+     * (Aktionszeilen lassen sich seit iTrain 6.0.0 zum Testen abschalten, Release Notes 6.0.0 und 6.0.3).
+     */
+    private static boolean aktiv(Element e, Element bis) {
+        for (org.w3c.dom.Node n = e; n instanceof Element x; n = n.getParentNode()) {
+            if ("false".equals(x.getAttribute("active"))) {
+                return false;
+            }
+            if (x == bis) {
+                break;
+            }
+        }
+        return true;
     }
 
     public static Anlage lies(Path tcd) throws IOException {
@@ -492,25 +570,40 @@ public final class Anlage {
     }
 
     /**
-     * Adresse aus {@code <interface address>}, {@code <interface><address nr>} oder BiDiB {@code <id>} (am Objekt
-     * selbst oder in der Schnittstelle).
+     * Adresse aus {@code <interface address>} oder {@code <interface><address nr>}. Bei BiDiB ist {@code <id>} am
+     * Objekt die Kennung des Knotens, nicht die Adresse (LudwigR, Forum 20.11.2026): Sie wird nur vorangestellt, damit
+     * gleiche Nummern an verschiedenen Knoten nicht als doppelt gelten. Ohne Adresse in der Schnittstelle gilt die
+     * Kennung selbst (Objekte, die BiDiB nur über die Kennung anspricht).
      */
     private static String adresse(Element objekt, Element i) {
         Element eigeneId = kind(objekt, "id");
-        if (eigeneId != null && leer(text(eigeneId)) != null) {
-            return text(eigeneId);
+        String knoten = eigeneId == null ? null : leer(text(eigeneId));
+        String nr = null;
+        if (i != null) {
+            if (!i.getAttribute("address").isEmpty()) {
+                nr = i.getAttribute("address");
+            } else {
+                // <address nr="…"/> oder <address>70</address>; mehrere Einträge (z. B. zwei Decoder einer Lok)
+                // werden mit "+" verbunden
+                List<String> l = new ArrayList<>();
+                for (Element a : kinder(i, "address")) {
+                    String w = !a.getAttribute("nr").isEmpty() ? a.getAttribute("nr") : leer(text(a));
+                    if (w != null) {
+                        l.add(w);
+                    }
+                }
+                if (!l.isEmpty()) {
+                    nr = String.join("+", l);
+                }
+            }
         }
-        if (i == null) {
-            return null;
+        if (nr != null) {
+            return knoten == null ? nr : knoten + " / " + nr;
         }
-        if (!i.getAttribute("address").isEmpty()) {
-            return i.getAttribute("address");
+        if (knoten != null) {
+            return knoten;
         }
-        Element a = kind(i, "address");
-        if (a != null && !a.getAttribute("nr").isEmpty()) {
-            return a.getAttribute("nr");
-        }
-        Element id = kind(i, "id");
+        Element id = i == null ? null : kind(i, "id");
         return id == null ? null : leer(text(id));
     }
 
