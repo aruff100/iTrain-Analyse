@@ -177,6 +177,10 @@ public final class Anlage {
     public final List<String> aktionenSelbstaufruf = new ArrayList<>();
     /** Lok-Funktionsschritte in Aktionen: Aktion, Lok, Funktion (nur mit genannter Lok, nur aktive Zeilen). */
     public final List<List<String>> lokAktionFunktionen = new ArrayList<>();
+    /** Booster und ihr beim Speichern gesicherter Zustand (on, off, alarm), in Dateireihenfolge. */
+    public final Map<String, String> boosterZustand = new LinkedHashMap<>();
+    /** Blöcke je Booster (Angabe „Booster“ im Blockeditor). */
+    public final Map<String, List<String>> boosterBloecke = new LinkedHashMap<>();
 
     private Anlage(String datei, Element wurzel) {
         this.datei = datei;
@@ -221,6 +225,13 @@ public final class Anlage {
                     richtung(kind(e, "next"), "next"), optionen(e), leer(e.getAttribute("direction")),
                     leer(e.getAttribute("polarity")));
             bloecke.put(b.name(), b);
+            Element bo = kind(e, "booster");
+            if (bo != null && !bo.getAttribute("name").isEmpty()) {
+                boosterBloecke.computeIfAbsent(bo.getAttribute("name"), k -> new ArrayList<>()).add(b.name());
+            }
+        }
+        for (Element e : kinder(kind(items, "boosters"), "booster")) {
+            boosterZustand.put(e.getAttribute("name"), leer(e.getAttribute("state")));
         }
         for (Element e : kinder(kind(items, "stations"), "station")) {
             bahnhoefe.add(new Bahnhof(e.getAttribute("name"), leer(e.getAttribute("type")),

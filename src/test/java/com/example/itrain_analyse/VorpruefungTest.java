@@ -140,6 +140,28 @@ class VorpruefungTest {
     }
 
     @Test
+    void boosterBeimSpeichernAusgeschaltet(@TempDir Path dir) throws IOException {
+        String boosters = "<boosters count=\"2\"><booster name=\"Booster 1\" type=\"lodi\" state=\"off\"/>"
+                + "<booster name=\"Booster 2\" type=\"lodi\" state=\"on\"/></boosters>";
+        int i = TCD.indexOf("<blocks");
+        String tcd = TCD.substring(0, i) + boosters + TCD.substring(i);
+        int b = tcd.indexOf(">", tcd.indexOf("<block name=", i)) + 1;
+        tcd = tcd.substring(0, b) + "<booster name=\"Booster 1\"/>" + tcd.substring(b);
+        Path f = dir.resolve("Test.tcd");
+        Files.writeString(f, tcd, StandardCharsets.UTF_8);
+        Vorpruefung.Befund bo = befund(Vorpruefung.pruefe(Anlage.lies(f), true, true, true),
+                "Booster beim Speichern ausgeschaltet");
+        assertEquals(Vorpruefung.Art.ANMERKUNG, bo.art());
+        assertEquals("Booster 1", bo.tabelle().zeilen().get(0).get(0));
+        assertEquals("1", bo.tabelle().zeilen().get(0).get(2));
+        // Alle Booster aus: ganze Anlage abgeschaltet, kein Befund
+        Files.writeString(f, tcd.replace("state=\"on\"", "state=\"off\""), StandardCharsets.UTF_8);
+        assertTrue(befund(Vorpruefung.pruefe(Anlage.lies(f), true, true, true),
+                "Booster beim Speichern ausgeschaltet") == null);
+        assertTrue(befund(pruefe(dir), "Booster beim Speichern ausgeschaltet") == null);
+    }
+
+    @Test
     void reaktionsverzoegerungUndKeineBahnsteige(@TempDir Path dir) throws IOException {
         String tcd = TCD.replace("<platform start=\"10.0\" length=\"95.0\" side=\"right\"/>", "")
                 .replace("<length unit=\"cm\">12.0</length>",
@@ -153,6 +175,7 @@ class VorpruefungTest {
         Vorpruefung.Befund fehler = befund(e, "Reaktionsverzögerung über 2000 ms");
         assertEquals(Vorpruefung.Art.FEHLER, fehler.art());
         assertEquals(java.util.List.of("V100", "20000", "20000"), fehler.tabelle().zeilen().get(0));
+        assertTrue(fehler.text().contains("möglicherweise Eingabefehler, bitte manuell prüfen"));
         Vorpruefung.Befund hoch = befund(e, "Reaktionsverzögerung über 1500 ms");
         assertEquals(Vorpruefung.Art.HINWEIS, hoch.art());
         assertEquals(1, hoch.tabelle().zeilen().size());

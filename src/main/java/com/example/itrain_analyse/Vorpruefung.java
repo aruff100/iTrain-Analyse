@@ -90,6 +90,7 @@ public final class Vorpruefung {
         v.signalfelder();
         v.weiterePruefungen();
         v.pruefungenAusKatoAnalyse();
+        v.pruefungBooster();
         int routen = v.routen();
         Tabelle zt = null;
         List<String> zh = new ArrayList<>();
@@ -757,12 +758,13 @@ public final class Vorpruefung {
         if (!reaktionFehler.isEmpty()) {
             befund(3, Art.FEHLER, t("Reaktionsverzögerung über 2000 ms", "Reaction delay above 2000 ms"),
                     t("Die Reaktionsverzögerung korrigiert die Positionsberechnung im Block; voreingestellt sind "
-                            + "200 ms. Werte über 2000 ms sind Eingabefehler: Die Lok hält deutlich zu früh, Halte- "
-                            + "und Bremspositionen stimmen nicht. Im Lok-Editor unter \"Optionen\" korrigieren.",
+                            + "200 ms. Werte über 2000 ms sind möglicherweise Eingabefehler, bitte manuell prüfen. Die Lok "
+                            + "hält damit deutlich zu früh, Halte- und Bremspositionen stimmen nicht. Im Lok-Editor "
+                            + "unter \"Optionen\" prüfen und gegebenenfalls korrigieren.",
                             "The reaction delay corrects the position calculation in the block; the default is "
-                            + "200 ms. Values above 2000 ms are input errors: the locomotive stops far too early, "
-                            + "stop and brake positions are wrong. Correct it in the locomotive editor under "
-                            + "\"Options\"."),
+                            + "200 ms. Values above 2000 ms may be input errors, please check manually. The "
+                            + "locomotive then stops far too early, stop and brake positions are wrong. Check and, if "
+                            + "necessary, correct it in the locomotive editor under \"Options\"."),
                     "S. 50, S. 118", false, new Tabelle(reaktionKopf, reaktionFehler));
         }
         if (!reaktionHoch.isEmpty()) {
@@ -1119,6 +1121,44 @@ public final class Vorpruefung {
             default -> eintrag.substring(0, k);
         };
         return eintrag.substring(k + 1) + " (" + feld + ")";
+    }
+
+    /**
+     * Booster, die beim Speichern ausgeschaltet waren, während andere eingeschaltet waren (Forum t=30619:
+     * Route startete in der Simulation nicht, weil Booster 1 aus war). Ein ausgeschalteter Booster verhindert, dass
+     * Blöcke seines Abschnitts reserviert werden (Handbuch S. 131). Sind alle Booster aus, war meist die ganze
+     * Anlage abgeschaltet; das ist kein Befund. Korpus: in rund 10 % der Dateien gemischt, deshalb nur Anmerkung.
+     */
+    void pruefungBooster() {
+        List<String> aus = new ArrayList<>();
+        boolean einerAn = false;
+        for (var e : a.boosterZustand.entrySet()) {
+            if ("on".equals(e.getValue())) {
+                einerAn = true;
+            } else if ("off".equals(e.getValue()) || "alarm".equals(e.getValue())) {
+                aus.add(e.getKey());
+            }
+        }
+        if (aus.isEmpty() || !einerAn) {
+            return;
+        }
+        List<List<String>> zeilen = new ArrayList<>();
+        for (String b : aus) {
+            List<String> bl = a.boosterBloecke.getOrDefault(b, List.of());
+            zeilen.add(List.of(b, "alarm".equals(a.boosterZustand.get(b)) ? t("Alarm", "alarm") : t("aus", "off"),
+                    String.valueOf(bl.size()), bl.isEmpty() ? "–" : liste(bl)));
+        }
+        befund(0, Art.ANMERKUNG, t("Booster beim Speichern ausgeschaltet", "Booster switched off when saved"),
+                t("Diese Booster waren beim Speichern aus, andere eingeschaltet. Solange ein Booster aus ist, "
+                        + "reserviert iTrain keine Blöcke in seinem Abschnitt; Züge dort starten keine Route, auch "
+                        + "in der Simulation. War das beim Speichern gewollt, ist es kein Fehler. Handlung: Booster "
+                        + "im Boostermonitor oder im Gleisbild einschalten.",
+                        "These boosters were off when the file was saved while others were on. As long as a booster "
+                        + "is off, iTrain does not reserve blocks in its section; trains there do not start a "
+                        + "route, also in simulation. If this was intended when saving, it is not an error. Action: "
+                        + "switch the booster on in the booster monitor or in the switchboard."),
+                "S. 131, S. 193", false, new Tabelle(List.of(t("Booster", "Booster"), t("Zustand", "State"),
+                        t("Blöcke", "Blocks"), t("Blocknamen", "Block names")), zeilen));
     }
 
     void pruefungenAusKatoAnalyse() {
